@@ -251,7 +251,7 @@
       '<div class="panel"><b>Ошибка запуска</b><br>' + String(msg).replace(/</g, '&lt;') +
       '<p><button class="btn primary" onclick="location.reload()">↻ Обновить</button></p></div>';
   }
-  window.addEventListener('error', e => { if (!window.appStarted) showFatal(e.message); });
+  window.addEventListener('error', e => showFatal(e.message + ' (строка ' + e.lineno + ')'));
   setTimeout(() => {
     if (!window.appStarted)
       showFatal('Не загрузилась библиотека Supabase. Проверьте интернет и нажмите «Обновить».');
