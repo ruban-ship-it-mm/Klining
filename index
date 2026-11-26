@@ -1,0 +1,492 @@
+  <!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f2937">
+<title>Обходы — задачи с фото</title>
+<style>
+  *{box-sizing:border-box}[hidden]{display:none!important}
+  body{margin:0;font:15px/1.4 system-ui,sans-serif;background:#f3f4f6;color:#111}
+  header{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;background:#1f2937;color:#fff;position:sticky;top:0;z-index:2}
+  header a{color:#fff;text-decoration:none;font-weight:600}
+  nav{display:flex;gap:16px;align-items:center}
+  main{max-width:900px;margin:0 auto;padding:16px}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .card{background:#fff;border-radius:10px;overflow:hidden;text-decoration:none;color:inherit;box-shadow:0 1px 3px #0002;border:2px solid transparent}
+  .card.late{border-color:#dc2626}
+  .card img{width:100%;height:150px;object-fit:cover;display:block;background:#ddd}
+  .card-body{padding:10px;display:grid;gap:4px}
+  .panel{background:#fff;border-radius:10px;padding:16px;margin:12px 0;box-shadow:0 1px 3px #0002}
+  .narrow{max-width:440px;margin:12px auto}
+  .photos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+  figure{margin:0}
+  figure img{width:100%;max-height:420px;object-fit:contain;background:#000;border-radius:8px}
+  figcaption{font-weight:600;margin-top:4px}
+  label{display:grid;gap:4px;margin:10px 0;font-weight:600}
+  input,textarea,select,.btn{font:inherit;padding:8px 10px;border:1px solid #ccc;border-radius:8px;max-width:100%}
+  textarea{width:100%;resize:vertical}
+  .btn{background:#fff;cursor:pointer;text-decoration:none;color:inherit;display:inline-block;margin:2px 0}
+  .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+  .btn.success{background:#16a34a;color:#fff;border-color:#16a34a}
+  .btn.danger{color:#dc2626;border-color:#dc2626}
+  .btn:disabled{opacity:.5}
+  .badge{font-size:12px;padding:2px 8px;border-radius:99px;width:fit-content;vertical-align:middle}
+  .badge.open{background:#fef3c7;color:#92400e}
+  .badge.review{background:#dbeafe;color:#1e40af}
+  .badge.done{background:#dcfce7;color:#166534}
+  .muted{color:#6b7280;font-size:13px}
+  .red{color:#dc2626;font-weight:600}
+  .preview{max-width:220px;border-radius:8px;display:block}
+  .action{border:2px dashed #16a34a;border-radius:10px;padding:12px;margin-top:12px}
+  .action.blue{border-color:#2563eb}
+  .comment{border-top:1px solid #eee;padding:8px 0}
+  .notif{display:block;padding:10px;border-top:1px solid #eee;color:inherit;text-decoration:none}
+  .notif.unread{background:#eff6ff;font-weight:600}
+  table{width:100%;border-collapse:collapse}
+  td{padding:6px 4px;border-top:1px solid #eee;vertical-align:middle}
+</style>
+</head>
+<body>
+<header>
+  <a href="#/">📋 Обходы</a>
+  <nav id="nav"></nav>
+</header>
+<main id="app"><p class="muted">Загрузка…</p></main>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ============ НАСТРОЙКИ — замените на свои ============
+const SUPABASE_URL = 'https://XXXXXXXX.supabase.co';
+const SUPABASE_KEY = 'ВСТАВЬТЕ_ANON_ИЛИ_PUBLISHABLE_KEY';
+const TG_BOT       = 'имя_вашего_бота';   // без @, например obhod_tasks_bot
+// =====================================================
+
+const sb  = createClient(SUPABASE_URL, SUPABASE_KEY);
+const $   = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const fmt     = s => s ? new Date(s).toLocaleString('ru', { dateStyle: 'short', timeStyle: 'short' }) : '';
+const fmtDate = d => d ? new Date(d + 'T00:00').toLocaleDateString('ru') : '';
+const today   = () => new Date().toLocaleDateString('sv'); // YYYY-MM-DD, локальная дата
+const overdue = t => t.due_date && t.status !== 'done' && t.due_date < today();
+const STATUS  = { open: 'В работе', review: 'На проверке', done: 'Закрыта' };
+const badge   = s => `<span class="badge ${s}">${STATUS[s]}</span>`;
+const nl2br   = s => esc(s).replace(/\n/g, '<br>');
+
+let me = null;          // профиль текущего пользователя
+let currentUid = null;
+const filter = { status: 'active', assignee: '' };
+
+function ok({ data, error }) {
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+function submitForm(fn) {
+  return async e => {
+    e.preventDefault();
+    const btns = e.target.querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
+    try { await fn(new FormData(e.target)); }
+    catch (err) { alert(err.message); }
+    finally { btns.forEach(b => b.disabled = false); }
+  };
+}
+
+function previewOn(input, img) {
+  input.onchange = () => {
+    const f = input.files[0];
+    if (f) { img.src = URL.createObjectURL(f); img.hidden = false; }
+  };
+}
+
+// ---------- Фото: сжатие и загрузка ----------
+async function compress(file, max = 1600, quality = 0.8) {
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('Не удалось прочитать фото'));
+    i.src = URL.createObjectURL(file);
+  });
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * k);
+  c.height = Math.round(img.naturalHeight * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  URL.revokeObjectURL(img.src);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', quality));
+}
+
+async function uploadPhoto(file) {
+  if (!file || !file.size) throw new Error('Выберите фото');
+  const blob = await compress(file);
+  const path = `${me.id}/${crypto.randomUUID()}.jpg`;
+  ok(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' }));
+  return path;
+}
+
+async function signed(paths) {
+  paths = [...new Set(paths.filter(Boolean))];
+  if (!paths.length) return {};
+  const data = ok(await sb.storage.from('photos').createSignedUrls(paths, 3600));
+  return Object.fromEntries(data.map(d => [d.path, d.signedUrl]));
+}
+
+const getPeople = async () =>
+  ok(await sb.from('profiles').select('*').order('full_name'));
+
+// ---------- Шапка и уведомления ----------
+function renderNav() {
+  $('#nav').innerHTML = me ? `
+    <a id="bell" href="#/notifications">🔔</a>
+    ${me.role === 'manager' ? '<a href="#/team" title="Сотрудники">👥</a>' : ''}
+    <a href="#/profile">${esc(me.full_name || 'Профиль')}</a>` : '';
+  refreshBell();
+}
+
+async function refreshBell() {
+  if (!me || !$('#bell')) return;
+  const { count } = await sb.from('notifications')
+    .select('id', { count: 'exact', head: true }).eq('is_read', false);
+  $('#bell').textContent = count ? `🔔 ${count}` : '🔔';
+}
+setInterval(refreshBell, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshBell(); });
+
+// ---------- Роутинг ----------
+const routes = [
+  [/^#\/new$/,            () => renderNew()],
+  [/^#\/task\/(\d+)$/,    m  => renderTask(+m[1])],
+  [/^#\/notifications$/,  () => renderNotifications()],
+  [/^#\/profile$/,        () => renderProfile()],
+  [/^#\/team$/,           () => renderTeam()],
+  [/.*/,                  () => renderList()],
+];
+
+async function route() {
+  if (!me) return renderLogin();
+  const h = location.hash || '#/';
+  for (const [re, fn] of routes) {
+    const m = h.match(re);
+    if (!m) continue;
+    try { await fn(m); }
+    catch (e) { app.innerHTML = `<div class="panel">Ошибка: ${esc(e.message)}<br><a href="#/">← К списку</a></div>`; }
+    return;
+  }
+}
+window.onhashchange = route;
+
+// ---------- Вход ----------
+function renderLogin() {
+  $('#nav').innerHTML = '';
+  app.innerHTML = `
+    <form id="f" class="panel narrow">
+      <h2>Вход</h2>
+      <label>Логин (email)<input name="email" type="email" required autocomplete="username"></label>
+      <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
+      <button class="btn primary">Войти</button>
+    </form>`;
+  $('#f').onsubmit = submitForm(async fd => {
+    ok(await sb.auth.signInWithPassword({
+      email: fd.get('email').trim(), password: fd.get('password'),
+    }));
+  });
+}
+
+async function onSession(session) {
+  const uid = session?.user?.id || null;
+  if (uid === currentUid && (me || !uid)) return;
+  currentUid = uid;
+  me = uid ? ok(await sb.from('profiles').select('*').eq('id', uid).single()) : null;
+  renderNav();
+  route();
+}
+sb.auth.onAuthStateChange((_ev, session) => setTimeout(() => onSession(session), 0));
+
+// ---------- Список задач ----------
+async function renderList() {
+  const isM = me.role === 'manager';
+  let q = sb.from('tasks')
+    .select('id,title,status,photo_before,due_date,location,assignee:profiles!tasks_assignee_id_fkey(full_name)')
+    .order('id', { ascending: false }).limit(100);
+  if (filter.status === 'active') q = q.in('status', ['open', 'review']);
+  else if (filter.status !== 'all') q = q.eq('status', filter.status);
+  if (filter.assignee) q = q.eq('assignee_id', filter.assignee);
+
+  const [tasks, people] = await Promise.all([ok(await q), isM ? getPeople() : []]);
+  const urls = await signed(tasks.map(t => t.photo_before));
+
+  app.innerHTML = `
+    <div class="toolbar">
+      ${isM ? '<a class="btn primary" href="#/new">+ Новая задача</a>' : ''}
+      <select id="fStatus">
+        <option value="active">Активные</option>
+        <option value="review">На проверке</option>
+        <option value="done">Закрытые</option>
+        <option value="all">Все</option>
+      </select>
+      ${isM ? `<select id="fWho"><option value="">Все исполнители</option>
+        ${people.map(p => `<option value="${p.id}">${esc(p.full_name)}</option>`).join('')}</select>` : ''}
+    </div>
+    <div class="grid">
+      ${tasks.map(t => `
+        <a class="card ${overdue(t) ? 'late' : ''}" href="#/task/${t.id}">
+          <img src="${urls[t.photo_before] || ''}" loading="lazy" alt="">
+          <div class="card-body">
+            <b>${esc(t.title)}</b>
+            ${t.location ? `<span class="muted">📍 ${esc(t.location)}</span>` : ''}
+            <span class="muted">👤 ${esc(t.assignee?.full_name)}</span>
+            ${t.due_date ? `<span class="muted ${overdue(t) ? 'red' : ''}">⏰ до ${fmtDate(t.due_date)}</span>` : ''}
+            ${badge(t.status)}
+          </div>
+        </a>`).join('') || '<p class="muted">Задач нет</p>'}
+    </div>`;
+
+  $('#fStatus').value = filter.status;
+  $('#fStatus').onchange = e => { filter.status = e.target.value; renderList(); };
+  if (isM) {
+    $('#fWho').value = filter.assignee;
+    $('#fWho').onchange = e => { filter.assignee = e.target.value; renderList(); };
+  }
+}
+
+// ---------- Новая задача (руководитель) ----------
+async function renderNew() {
+  if (me.role !== 'manager') { location.hash = '#/'; return; }
+  const people = await getPeople();
+  app.innerHTML = `
+    <form id="f" class="panel">
+      <h2>Новая задача</h2>
+      <label>Фото «до» *<input type="file" name="photo" accept="image/*" required></label>
+      <img id="prev" class="preview" hidden>
+      <label>Что сделать *<input name="title" required maxlength="200"></label>
+      <label>Место<input name="location" maxlength="200" placeholder="Корпус 2, 3 этаж, у лифта"></label>
+      <label>Подробности<textarea name="description" rows="3"></textarea></label>
+      <label>Ответственный *
+        <select name="assignee_id" required>
+          <option value="">— выберите —</option>
+          ${people.map(p => `<option value="${p.id}">${esc(p.full_name)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Срок<input type="date" name="due_date"></label>
+      <button class="btn primary">Создать</button>
+      <a href="#/" class="btn">Отмена</a>
+    </form>`;
+  previewOn($('#f').photo, $('#prev'));
+  $('#f').onsubmit = submitForm(async fd => {
+    const path = await uploadPhoto(fd.get('photo'));
+    const t = ok(await sb.from('tasks').insert({
+      title: fd.get('title').trim(),
+      location: fd.get('location').trim(),
+      description: fd.get('description').trim(),
+      assignee_id: fd.get('assignee_id'),
+      due_date: fd.get('due_date') || null,
+      photo_before: path,
+    }).select('id').single());
+    location.hash = '#/task/' + t.id;
+  });
+}
+
+// ---------- Карточка задачи ----------
+async function renderTask(id) {
+  const t = ok(await sb.from('tasks').select(`*,
+      author:profiles!tasks_author_id_fkey(full_name),
+      assignee:profiles!tasks_assignee_id_fkey(full_name),
+      comments(id,text,created_at,author:profiles(full_name))`)
+    .eq('id', id).maybeSingle());
+  if (!t) throw new Error('Задача не найдена или нет доступа');
+  t.comments.sort((a, b) => a.id - b.id);
+
+  const urls = await signed([t.photo_before, t.photo_after]);
+  const isM = me.role === 'manager';
+  const canSubmit = t.status === 'open' && t.assignee_id === me.id;
+  const canReview = t.status === 'review' && isM;
+
+  sb.from('notifications').update({ is_read: true })
+    .eq('task_id', id).eq('is_read', false).then(() => refreshBell());
+
+  const photo = (p, caption) => `
+    <figure>
+      <a href="${urls[p]}" target="_blank"><img src="${urls[p]}" alt=""></a>
+      <figcaption>${caption}</figcaption>
+    </figure>`;
+
+  app.innerHTML = `
+    <a href="#/">← К списку</a>
+    <div class="panel">
+      <h2>${esc(t.title)} ${badge(t.status)}</h2>
+      <div class="photos">
+        ${photo(t.photo_before, 'До')}
+        ${t.photo_after ? photo(t.photo_after, `После · <span class="muted">${fmt(t.submitted_at)}</span>`) : ''}
+      </div>
+      <p>
+        👤 Ответственный: <b>${esc(t.assignee?.full_name)}</b><br>
+        ${t.location ? `📍 ${esc(t.location)}<br>` : ''}
+        ${t.due_date ? `<span class="${overdue(t) ? 'red' : ''}">⏰ Срок: ${fmtDate(t.due_date)}</span><br>` : ''}
+        <span class="muted">Поставил: ${esc(t.author?.full_name)} · ${fmt(t.created_at)}
+        ${t.closed_at ? ` · Принята: ${fmt(t.closed_at)}` : ''}</span>
+      </p>
+      ${t.description ? `<p>${nl2br(t.description)}</p>` : ''}
+
+      ${canSubmit ? `
+      <form id="submit" class="action">
+        <b>Сдать работу</b>
+        <label>Фото «после» *<input type="file" name="photo" accept="image/*" capture="environment" required></label>
+        <img id="prevAfter" class="preview" hidden>
+        <textarea name="comment" rows="2" placeholder="Комментарий (необязательно)"></textarea>
+        <p><button class="btn success">📷 Отправить на проверку</button></p>
+      </form>` : ''}
+
+      ${canReview ? `
+      <div class="action blue">
+        <b>Проверка</b>
+        <p class="muted">Сравните фото «до» и «после».</p>
+        <button class="btn success" id="accept">✓ Принять</button>
+        <button class="btn danger" id="reject">↩ Вернуть на доработку</button>
+      </div>` : ''}
+
+      ${t.status === 'review' && !isM ? '<p class="muted">⏳ Отправлено на проверку руководителю.</p>' : ''}
+      ${isM ? '<p><button class="btn danger" id="del">🗑 Удалить задачу</button></p>' : ''}
+    </div>
+
+    <div class="panel">
+      <h3>Комментарии (${t.comments.length})</h3>
+      ${t.comments.map(c => `
+        <div class="comment">
+          <b>${esc(c.author?.full_name)}</b> <span class="muted">${fmt(c.created_at)}</span>
+          <div>${nl2br(c.text)}</div>
+        </div>`).join('') || '<p class="muted">Пока нет комментариев</p>'}
+      <form id="cf">
+        <textarea name="text" rows="2" required placeholder="Написать комментарий…"></textarea>
+        <p><button class="btn primary">Отправить</button></p>
+      </form>
+    </div>`;
+
+  const act = fn => async () => {
+    try { await fn(); renderTask(id); } catch (e) { alert(e.message); }
+  };
+
+  if (canSubmit) {
+    previewOn($('#submit').photo, $('#prevAfter'));
+    $('#submit').onsubmit = submitForm(async fd => {
+      const path = await uploadPhoto(fd.get('photo'));
+      ok(await sb.rpc('submit_task', { p_task: id, p_photo: path, p_comment: fd.get('comment') || '' }));
+      renderTask(id);
+    });
+  }
+  if (canReview) {
+    $('#accept').onclick = act(async () => ok(await sb.rpc('accept_task', { p_task: id })));
+    $('#reject').onclick = async () => {
+      const reason = prompt('Что нужно исправить?');
+      if (reason === null) return;
+      if (!reason.trim()) return alert('Укажите причину');
+      await act(async () => ok(await sb.rpc('return_task', { p_task: id, p_reason: reason }))) ();
+    };
+  }
+  if (isM) {
+    $('#del').onclick = async () => {
+      if (!confirm('Удалить задачу безвозвратно?')) return;
+      try { ok(await sb.from('tasks').delete().eq('id', id)); location.hash = '#/'; }
+      catch (e) { alert(e.message); }
+    };
+  }
+  $('#cf').onsubmit = submitForm(async fd => {
+    ok(await sb.from('comments').insert({ task_id: id, text: fd.get('text').trim() }));
+    renderTask(id);
+  });
+}
+
+// ---------- Уведомления ----------
+async function renderNotifications() {
+  const list = ok(await sb.from('notifications').select('*')
+    .order('id', { ascending: false }).limit(50));
+  app.innerHTML = `
+    <div class="panel">
+      <h2>Уведомления</h2>
+      ${list.some(n => !n.is_read) ? '<button class="btn" id="readAll">Отметить все прочитанными</button>' : ''}
+      ${list.map(n => `
+        <a class="notif ${n.is_read ? '' : 'unread'}" href="${n.task_id ? '#/task/' + n.task_id : '#/'}">
+          ${nl2br(n.text)}<br><span class="muted">${fmt(n.created_at)}</span>
+        </a>`).join('') || '<p class="muted">Пока пусто</p>'}
+    </div>`;
+  $('#readAll')?.addEventListener('click', async () => {
+    ok(await sb.from('notifications').update({ is_read: true }).eq('is_read', false));
+    refreshBell();
+    renderNotifications();
+  });
+}
+
+// ---------- Профиль ----------
+function renderProfile() {
+  app.innerHTML = `
+    <form id="f" class="panel narrow">
+      <h2>Профиль</h2>
+      <p class="muted">${esc(me.email)} · ${me.role === 'manager' ? 'Руководитель' : 'Исполнитель'}</p>
+      <label>Имя и фамилия<input name="full_name" required maxlength="100" value="${esc(me.full_name)}"></label>
+      <label>Telegram ID для уведомлений
+        <input name="tg" inputmode="numeric" value="${me.tg_chat_id ?? ''}" placeholder="например 123456789">
+      </label>
+      <p class="muted">
+        1) Откройте бота <a href="https://t.me/${esc(TG_BOT)}" target="_blank">@${esc(TG_BOT)}</a> и нажмите «Start».<br>
+        2) Напишите <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a> — он пришлёт ваш ID.<br>
+        3) Вставьте ID сюда и сохраните.
+      </p>
+      <button class="btn primary">Сохранить</button>
+      <button class="btn" type="button" id="pwd">Сменить пароль</button>
+      <button class="btn danger" type="button" id="out">Выйти</button>
+    </form>`;
+  $('#f').onsubmit = submitForm(async fd => {
+    const tg = fd.get('tg').trim();
+    if (tg && !/^-?\d+$/.test(tg)) throw new Error('Telegram ID — только цифры');
+    me = ok(await sb.from('profiles').update({
+      full_name: fd.get('full_name').trim(),
+      tg_chat_id: tg ? Number(tg) : null,
+    }).eq('id', me.id).select().single());
+    renderNav();
+    alert('Сохранено');
+  });
+  $('#pwd').onclick = async () => {
+    const p = prompt('Новый пароль (минимум 6 символов)');
+    if (!p) return;
+    try { ok(await sb.auth.updateUser({ password: p })); alert('Пароль изменён'); }
+    catch (e) { alert(e.message); }
+  };
+  $('#out').onclick = () => sb.auth.signOut();
+}
+
+// ---------- Сотрудники (руководитель) ----------
+async function renderTeam() {
+  if (me.role !== 'manager') { location.hash = '#/'; return; }
+  const people = await getPeople();
+  app.innerHTML = `
+    <div class="panel">
+      <h2>Сотрудники (${people.length})</h2>
+      <p class="muted">Новых сотрудников добавляют в Supabase: Authentication → Users → Add user.
+        Здесь можно поменять имя и роль. ✈️ — Telegram подключён.</p>
+      <table>
+        ${people.map(p => `
+          <tr>
+            <td><input class="nm" data-id="${p.id}" value="${esc(p.full_name)}"></td>
+            <td class="muted">${esc(p.email)}</td>
+            <td><select class="rl" data-id="${p.id}">
+              <option value="executor" ${p.role === 'executor' ? 'selected' : ''}>Исполнитель</option>
+              <option value="manager"  ${p.role === 'manager'  ? 'selected' : ''}>Руководитель</option>
+            </select></td>
+            <td>${p.tg_chat_id ? '✈️' : ''}</td>
+          </tr>`).join('')}
+      </table>
+    </div>`;
+  const save = async (id, patch) => {
+    try { ok(await sb.from('profiles').update(patch).eq('id', id)); }
+    catch (e) { alert(e.message); renderTeam(); }
+  };
+  app.querySelectorAll('.nm').forEach(i => i.onchange = () => save(i.dataset.id, { full_name: i.value.trim() }));
+  app.querySelectorAll('.rl').forEach(s => s.onchange = () => save(s.dataset.id, { role: s.value }));
+}
+</script>
+</body>
+</html>
