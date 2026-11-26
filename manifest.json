@@ -1,6 +1,6 @@
 {
-  "name": "Обходы",
-  "short_name": "Обходы",
+  "name": "Task Manager",
+  "short_name": "Tasks",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
