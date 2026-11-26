@@ -4,7 +4,7 @@ self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data.json(); } catch { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Обходы', {
+  e.waitUntil(self.registration.showNotification('Task Manager', {
     body: d.body || '',
     data: { url: d.url || '#/' },
   }));
