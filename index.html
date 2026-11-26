@@ -2,14 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#151821" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Обходы">
 <title>Обходы — задачи с фото</title>
-  
 <style>
   :root{
     --bg:#f4f5f9; --surface:#fff; --surface-2:#f1f3f8; --text:#0f172a; --muted:#64748b; --line:#e6e8f0;
@@ -44,7 +44,7 @@
 
   /* ---------- Шапка ---------- */
   header{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:10px;
-         padding:10px 16px;background:var(--surface);
+         padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));background:var(--surface);
          background:color-mix(in srgb,var(--surface) 82%,transparent);
          backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
          border-bottom:1px solid var(--line)}
@@ -53,22 +53,22 @@
   nav a{color:var(--text);font-weight:600;font-size:14px;padding:7px 12px;border-radius:999px;background:var(--surface-2);
         white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;transition:transform .1s}
   nav a:active{transform:scale(.94)}
+  @media (max-width:420px){ header > a{font-size:16px} nav{gap:4px} nav a{padding:7px 9px;max-width:90px} }
 
   main{max-width:960px;margin:0 auto;padding:16px 16px 110px}
   #app > *{animation:fadeIn .22s ease both}
   @keyframes fadeIn{from{opacity:0}}
 
-  /* Ссылка «Назад» */
   #app > a:first-child:not(.panel){display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;
         background:var(--surface);box-shadow:var(--shadow);font-weight:600;font-size:14px;color:var(--text)}
 
   /* Загрузка */
-  #app > p.muted:only-child{text-align:center;padding:70px 0}
-  #app > p.muted:only-child::before{content:"";display:block;width:30px;height:30px;margin:0 auto 12px;
+  .loading{text-align:center;padding:70px 0;color:var(--muted)}
+  .loading::before{content:"";display:block;width:30px;height:30px;margin:0 auto 12px;
         border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ---------- Панель фильтров ---------- */
+  /* ---------- Фильтры ---------- */
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
   .toolbar select{width:auto;border-radius:999px;padding:9px 36px 9px 14px;font-size:14px;font-weight:600;
         background-color:var(--surface);box-shadow:var(--shadow)}
@@ -77,18 +77,18 @@
         padding:15px 22px;border-radius:999px;font-size:16px;box-shadow:0 12px 30px rgba(79,70,229,.45)}
   }
 
-  /* ---------- Карточки задач ---------- */
+  /* ---------- Карточки ---------- */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
   @media (max-width:520px){ .grid{grid-template-columns:1fr 1fr;gap:10px} }
-  .grid > p.muted{grid-column:1/-1;text-align:center;padding:50px 16px;font-size:15px}
-  .grid > p.muted::before{content:"📭";display:block;font-size:46px;margin-bottom:6px}
+  .empty{grid-column:1/-1;text-align:center;padding:50px 16px;color:var(--muted)}
+  .empty::before{content:"📭";display:block;font-size:46px;margin-bottom:6px}
 
   .card{position:relative;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--radius);
         overflow:hidden;color:inherit;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s}
   .card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
   .card:active{transform:scale(.98)}
   .card.late{box-shadow:0 0 0 2px var(--red),var(--shadow)}
-  .card img{width:100%;aspect-ratio:4/3;height:auto;object-fit:cover;display:block;background:var(--surface-2)}
+  .card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--surface-2)}
   .card-body{padding:12px 14px 14px;display:grid;gap:2px}
   .card-body b{font-size:15px;line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;
         -webkit-box-orient:vertical;overflow:hidden}
@@ -98,7 +98,7 @@
 
   /* ---------- Статусы ---------- */
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;
-         border-radius:999px;width:fit-content;vertical-align:middle;letter-spacing:.01em}
+         border-radius:999px;width:fit-content;vertical-align:middle}
   .badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
   .badge.open{background:var(--amber-soft);color:var(--amber)}
   .badge.review{background:var(--blue-soft);color:var(--blue)}
@@ -106,8 +106,8 @@
   h2 .badge{margin-left:6px;transform:translateY(-2px)}
 
   /* ---------- Панели ---------- */
-  .panel{background:var(--surface);border-radius:var(--radius);padding:20px;margin:14px 0;box-shadow:var(--shadow)}
-  .panel[style]{background:var(--accent-soft)!important;color:var(--text)!important;font-size:14px}
+  .panel{display:block;background:var(--surface);border-radius:var(--radius);padding:20px;margin:14px 0;box-shadow:var(--shadow)}
+  .hint{background:var(--accent-soft);color:var(--text);font-size:14px}
   .narrow{max-width:460px;margin:24px auto}
   @media (max-width:520px){ .panel{padding:16px;border-radius:16px} }
 
@@ -118,7 +118,7 @@
   figcaption{position:absolute;top:10px;left:10px;padding:4px 11px;border-radius:999px;background:rgba(0,0,0,.6);
         color:#fff;font-size:12px;font-weight:700;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   figcaption .muted{color:rgba(255,255,255,.8);font-size:12px;font-weight:500}
-  .preview{max-width:100%;max-height:260px;border-radius:12px;margin-top:4px;box-shadow:var(--shadow)}
+  .preview{max-width:100%;max-height:260px;border-radius:12px;margin-top:4px;box-shadow:var(--shadow);display:block}
 
   /* ---------- Формы ---------- */
   label{display:grid;gap:6px;margin:14px 0;font-weight:600;font-size:13px;color:var(--muted)}
@@ -129,19 +129,19 @@
   input:focus,textarea:focus,select:focus{border-color:var(--accent);background-color:var(--surface);
         box-shadow:0 0 0 4px var(--accent-soft)}
   textarea{width:100%;resize:vertical;min-height:48px}
-  input[type=checkbox]{width:auto}
+  input[type=checkbox]{width:auto;width:20px;height:20px}
   select{appearance:none;-webkit-appearance:none;padding-right:36px;background-repeat:no-repeat;
         background-position:right 12px center;
         background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}
   input[type=file]{padding:10px;font-size:14px;color:var(--muted);background-color:var(--surface);border:1.5px dashed var(--line)}
   input[type=file]::file-selector-button{font:inherit;font-weight:600;margin-right:12px;padding:9px 14px;border:0;
         border-radius:10px;background:var(--accent-soft);color:var(--accent);cursor:pointer}
+  label.chk{display:flex;align-items:center;gap:8px;color:var(--text);font-size:15px}
 
   /* ---------- Кнопки ---------- */
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:10px 18px;
        margin:3px 4px 3px 0;font:inherit;font-weight:600;font-size:15px;color:var(--text);background:var(--surface-2);
-       border:0;border-radius:12px;cursor:pointer;text-decoration:none;user-select:none;
-       transition:transform .1s,filter .15s}
+       border:0;border-radius:12px;cursor:pointer;text-decoration:none;user-select:none;transition:transform .1s,filter .15s}
   .btn:hover{filter:brightness(.96)}
   .btn:active{transform:scale(.97)}
   .btn.primary{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 6px 16px rgba(79,70,229,.3)}
@@ -149,7 +149,7 @@
   .btn.danger{background:var(--red-soft);color:var(--red)}
   .btn:disabled{opacity:.55;pointer-events:none}
 
-  /* ---------- Сдача и проверка ---------- */
+  /* ---------- Сдача / проверка ---------- */
   .action{background:var(--green-soft);border-radius:16px;padding:16px;margin-top:16px}
   .action.blue{background:var(--blue-soft)}
   .action > b{display:block;font-size:16px;margin-bottom:2px}
@@ -164,7 +164,6 @@
   .comment div{margin-top:2px;overflow-wrap:anywhere}
   #cf{display:flex;gap:8px;align-items:flex-end;margin-top:16px}
   #cf textarea{flex:1;min-height:46px}
-  #cf p{margin:0}
   #cf .btn{margin:0}
 
   /* ---------- Уведомления ---------- */
@@ -176,25 +175,19 @@
   .notif .muted{font-weight:400;font-size:12px}
 
   /* ---------- Сотрудники ---------- */
-  table{width:100%;border-collapse:collapse}
-  td{padding:10px 6px;border-top:1px solid var(--line);vertical-align:middle;font-size:14px}
-  tr:first-child td{border-top:0}
-  td input,td select{width:100%}
+  table.team{width:100%;border-collapse:collapse}
+  .team td{padding:10px 6px;border-top:1px solid var(--line);vertical-align:middle;font-size:14px}
+  .team tr:first-child td{border-top:0}
+  .team td input,.team td select{width:100%}
   @media (max-width:640px){
-    table,tbody,tr,td{display:block}
-    tr{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
-    tr:first-child{border-top:0}
-    td{padding:0;border:0}
+    .team,.team tbody,.team tr,.team td{display:block}
+    .team tr{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+    .team tr:first-child{border-top:0}
+    .team td{padding:0;border:0}
   }
 
-  /* ---------- Мелочи ---------- */
-  .muted{color:var(--muted);font-size:13px}
-  .red{color:var(--red);font-weight:700}
-  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
   /* ---------- Отчёты ---------- */
-  @media (max-width:420px){ nav a{padding:7px 9px;max-width:90px} }
   .rep-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px}
-  label.chk{display:flex;align-items:center;gap:8px;color:var(--text);font-size:15px}
   .report{background:#fff;color:#0f172a;border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);font-size:13px}
   .report h1{font-size:22px;margin:0 0 4px}
   .report h3{margin:22px 0 8px;color:#0f172a}
@@ -204,9 +197,8 @@
   .kpis div{background:#f1f3f8;border-radius:12px;padding:10px;text-align:center;color:#64748b;font-size:12px}
   .kpis b{display:block;font-size:24px;color:#0f172a}
   .k-done b{color:#15803d}.k-review b{color:#1d4ed8}.k-open b{color:#b45309}.k-late b{color:#e11d48}
-  .rep-table{display:table;width:100%;border-collapse:collapse}
-  .rep-table thead{display:table-header-group}.rep-table tbody{display:table-row-group}.rep-table tr{display:table-row}
-  .rep-table th,.rep-table td{display:table-cell;border:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:12px;color:#0f172a}
+  .rep-table{width:100%;border-collapse:collapse}
+  .rep-table th,.rep-table td{border:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:12px;color:#0f172a}
   .rep-table th{background:#f1f3f8}
   .rep-table td:first-child,.rep-table th:first-child{text-align:left}
   .rep-task{display:grid;grid-template-columns:260px 1fr;gap:14px;padding:12px 0;border-top:1px solid #e2e8f0;break-inside:avoid;page-break-inside:avoid}
@@ -236,6 +228,10 @@
     .kpis{grid-template-columns:repeat(5,1fr)!important}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
+
+  .muted{color:var(--muted);font-size:13px}
+  .red{color:var(--red);font-weight:700}
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
@@ -243,57 +239,78 @@
   <a href="#/">📋 Обходы</a>
   <nav id="nav"></nav>
 </header>
-<main id="app"><p class="muted">Загрузка…</p></main>
+<main id="app"><p class="loading">Загрузка…</p></main>
+
 <script>
-  <script>
+  // Показ ошибок запуска (с номером строки)
   function showFatal(msg) {
     document.getElementById('app').innerHTML =
       '<div class="panel"><b>Ошибка запуска</b><br>' + String(msg).replace(/</g, '&lt;') +
       '<p><button class="btn primary" onclick="location.reload()">↻ Обновить</button></p></div>';
   }
-  window.addEventListener('error', e => showFatal(e.message + ' (строка ' + e.lineno + ')'));
-  setTimeout(() => {
+  window.addEventListener('error', function (e) {
+    if (!window.appStarted) showFatal(e.message + (e.lineno ? ' (строка ' + e.lineno + ')' : ''));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    if (!window.appStarted) showFatal((e.reason && e.reason.message) || e.reason);
+  });
+  setTimeout(function () {
     if (!window.appStarted)
       showFatal('Не загрузилась библиотека Supabase. Проверьте интернет и нажмите «Обновить».');
   }, 20000);
 </script>
+
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// ============ НАСТРОЙКИ — замените на свои ============
-const SUPABASE_URL = 'https://ahvreobecreuytpfxmeb.supabase.co';   // без / в конце
+// ======================= НАСТРОЙКИ =======================
+const SUPABASE_URL = 'https://ahvreobecreuytpfxmeb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_FbutypTiax8lbAOWATVIFg_edKn1qj3';
- 
-// =====================================================
-// Запрос не может «висеть» вечно: через 30 секунд — понятная ошибка
+const TG_BOT       = '';               // имя Telegram-бота без @ (можно оставить пустым)
+const LOGIN_DOMAIN = '@obhod.local';   // логин «ivan» = ivan@obhod.local
+// =========================================================
+
+if (SUPABASE_KEY.startsWith('ВСТАВЬТЕ')) {
+  window.appStarted = true;
+  window.showFatal('В index.html не вставлен ключ SUPABASE_KEY (раздел НАСТРОЙКИ).');
+  throw new Error('no key');
+}
+
+// ---------- Утилиты ----------
+const $   = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt     = s => s ? new Date(s).toLocaleString('ru', { dateStyle: 'short', timeStyle: 'short' }) : '';
+const fmtDate = d => d ? new Date(d + 'T00:00').toLocaleDateString('ru') : '';
+const today   = () => new Date().toLocaleDateString('sv');
+const overdue = t => t.due_date && t.status !== 'done' && t.due_date < today();
+const STATUS  = { open: 'В работе', review: 'На проверке', done: 'Закрыта' };
+const badge   = s => `<span class="badge ${s}">${STATUS[s]}</span>`;
+const nl2br   = s => esc(s).replace(/\n/g, '<br>');
+const uuid    = () => crypto.randomUUID ? crypto.randomUUID()
+  : Date.now().toString(36) + Math.random().toString(36).slice(2);
+const loading = () => { app.innerHTML = '<p class="loading">Загрузка…</p>'; };
+
+// Запрос не «висит» вечно (важно для Redmi и слабого интернета)
 function fetchWithTimeout(url, opts = {}) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
+  const timer = setTimeout(() => ctrl.abort(), 45000);
   opts.signal?.addEventListener('abort', () => ctrl.abort());
   return fetch(url, { ...opts, signal: ctrl.signal })
     .catch(e => {
       throw new Error(e.name === 'AbortError'
-        ? 'Сервер не ответил за 30 секунд. Проверьте интернет.'
+        ? 'Сервер не ответил вовремя. Проверьте интернет.'
         : 'Нет связи с сервером. Проверьте интернет.');
     })
     .finally(() => clearTimeout(timer));
 }
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { global: { fetch: fetchWithTimeout } });
 window.appStarted = true;
-const $   = s => document.querySelector(s);
-const app = $('#app');
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
-  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const fmt     = s => s ? new Date(s).toLocaleString('ru', { dateStyle: 'short', timeStyle: 'short' }) : '';
-const fmtDate = d => d ? new Date(d + 'T00:00').toLocaleDateString('ru') : '';
-const today   = () => new Date().toLocaleDateString('sv'); // YYYY-MM-DD, локальная дата
-const overdue = t => t.due_date && t.status !== 'done' && t.due_date < today();
-const STATUS  = { open: 'В работе', review: 'На проверке', done: 'Закрыта' };
-const badge   = s => `<span class="badge ${s}">${STATUS[s]}</span>`;
-const nl2br   = s => esc(s).replace(/\n/g, '<br>');
 
-let me = null;          // профиль текущего пользователя
+let me = null;
 let currentUid = null;
+let started = false;
 const filter = { status: 'active', assignee: '' };
 
 function ok({ data, error }) {
@@ -319,12 +336,12 @@ function previewOn(input, img) {
   };
 }
 
-// ---------- Фото: сжатие и загрузка ----------
+// ---------- Фото ----------
 async function compress(file, max = 1600, quality = 0.8) {
   const img = await new Promise((res, rej) => {
     const i = new Image();
     i.onload = () => res(i);
-    i.onerror = () => rej(new Error('Не удалось прочитать фото'));
+    i.onerror = () => rej(new Error('Не удалось прочитать фото. Попробуйте сделать снимок ещё раз.'));
     i.src = URL.createObjectURL(file);
   });
   const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
@@ -333,13 +350,15 @@ async function compress(file, max = 1600, quality = 0.8) {
   c.height = Math.round(img.naturalHeight * k);
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   URL.revokeObjectURL(img.src);
-  return new Promise(r => c.toBlob(r, 'image/jpeg', quality));
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', quality));
+  if (!blob) throw new Error('Не удалось обработать фото');
+  return blob;
 }
 
 async function uploadPhoto(file) {
   if (!file || !file.size) throw new Error('Выберите фото');
   const blob = await compress(file);
-  const path = `${me.id}/${crypto.randomUUID()}.jpg`;
+  const path = `${me.id}/${uuid()}.jpg`;
   ok(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' }));
   return path;
 }
@@ -350,6 +369,16 @@ async function signed(paths) {
   const data = ok(await sb.storage.from('photos').createSignedUrls(paths, 3600));
   return Object.fromEntries(data.map(d => [d.path, d.signedUrl]));
 }
+
+async function signedMany(paths) {
+  paths = [...new Set(paths.filter(Boolean))];
+  const out = {};
+  for (let i = 0; i < paths.length; i += 100) Object.assign(out, await signed(paths.slice(i, i + 100)));
+  return out;
+}
+
+const getPeople = async () => ok(await sb.from('profiles').select('*').order('full_name'));
+
 // ================= PUSH-УВЕДОМЛЕНИЯ =================
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -369,7 +398,7 @@ function swReady() {
   return Promise.race([
     navigator.serviceWorker.ready,
     new Promise((_, rej) => setTimeout(() => rej(new Error(
-      'Фоновый помощник не запустился. Проверьте, что файл sw.js загружен в репозиторий.')), 8000)),
+      'Фоновый помощник не запустился. Проверьте, что файл sw.js есть в репозитории.')), 8000)),
   ]);
 }
 
@@ -390,7 +419,6 @@ async function saveSub(sub) {
 }
 
 async function enablePush() {
-  // Разрешение спрашиваем сразу по нажатию — иначе iPhone откажет
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error('Уведомления не разрешены. Разрешите их в настройках браузера для этого сайта.');
   const key = ok(await sb.rpc('get_vapid_public'));
@@ -409,7 +437,6 @@ async function disablePush(unsubscribe = true) {
   if (unsubscribe) await sub.unsubscribe();
 }
 
-// При входе: если на устройстве уже разрешены уведомления — привязать к текущему сотруднику
 async function syncPush() {
   try {
     if (!pushSupported || Notification.permission !== 'granted') return;
@@ -420,56 +447,12 @@ async function syncPush() {
 
 async function showPushBanner() {
   const st = await pushStatus().catch(() => 'unsupported');
-  if (!['off', 'ios-install'].includes(st) || !$('#fStatus')) return;
+  if (!['off', 'ios-install'].includes(st) || !$('#fStatus') || $('.hint')) return;
   app.insertAdjacentHTML('afterbegin', `
-    <a href="#/profile" class="panel" style="display:block;background:#eff6ff;text-decoration:none;color:inherit">
-      🔔 <b>Включите уведомления</b>, чтобы не пропускать задачи →
-    </a>`);
+    <a href="#/profile" class="panel hint">🔔 <b>Включите уведомления</b>, чтобы не пропускать задачи →</a>`);
 }
 
-// Первичная настройка (руководитель, один раз)
-async function renderSetup() {
-  if (${me.role === 'manager' ? '<a href="#/reports" title="Отчёты">📊</a><a href="#/team" title="Сотрудники">👥</a>' : ''}
-  const existing = ok(await sb.rpc('get_vapid_public'));
-  app.innerHTML = `
-    <a href="#/profile">← Профиль</a>
-    <div class="panel">
-      <h2>⚙️ Первичная настройка push</h2>
-      ${existing ? '<p class="red">Ключи уже настроены. Новые ключи отключат уведомления у всех — каждому придётся включать их заново.</p>' : ''}
-      <button class="btn primary" id="gen">Сгенерировать ключи</button>
-      <div id="setupOut" hidden>
-        <p>Скопируйте код, выполните в Supabase → <b>SQL Editor</b> → Run.
-          <b>Никому не показывайте</b> — там секретный ключ.</p>
-        <textarea id="sql" rows="9" readonly></textarea>
-        <p><button class="btn" id="copy">📋 Скопировать</button></p>
-      </div>
-    </div>`;
-  $('#gen').onclick = async () => {
-    if (existing && !confirm('Точно заменить ключи?')) return;
-    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
-    const pub = b64url(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
-    const priv = (await crypto.subtle.exportKey('jwk', kp.privateKey)).d;
-    const secret = b64url(crypto.getRandomValues(new Uint8Array(24)));
-    $('#sql').value =
-`insert into public.app_config(key, value) values
-  ('vapid_public',  '${pub}'),
-  ('vapid_private', '${priv}'),
-  ('push_secret',   '${secret}'),
-  ('supabase_url',  '${SUPABASE_URL.replace(/\/+$/, '')}')
-on conflict (key) do update set value = excluded.value;`;
-    $('#setupOut').hidden = false;
-  };
-  $('#copy').onclick = async () => {
-    try { await navigator.clipboard.writeText($('#sql').value); }
-    catch { $('#sql').select(); document.execCommand('copy'); }
-    alert('Скопировано');
-  };
-}
-// ====================================================
-const getPeople = async () =>
-  ok(await sb.from('profiles').select('*').order('full_name'));
-
-// ---------- Шапка и уведомления ----------
+// ---------- Шапка ----------
 function renderNav() {
   $('#nav').innerHTML = me ? `
     <a id="bell" href="#/notifications">🔔</a>
@@ -480,12 +463,13 @@ function renderNav() {
 
 async function refreshBell() {
   if (!me || !$('#bell')) return;
-  const { count } = await sb.from('notifications')
-    .select('id', { count: 'exact', head: true }).eq('is_read', false);
-  $('#bell').textContent = count ? `🔔 ${count}` : '🔔';
+  try {
+    const { count } = await sb.from('notifications')
+      .select('id', { count: 'exact', head: true }).eq('is_read', false);
+    if ($('#bell')) $('#bell').textContent = count ? `🔔 ${count}` : '🔔';
+  } catch (e) { console.warn(e); }
 }
 setInterval(refreshBell, 60000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshBell(); });
 
 // ---------- Роутинг ----------
 const routes = [
@@ -505,8 +489,9 @@ async function route() {
   for (const [re, fn] of routes) {
     const m = h.match(re);
     if (!m) continue;
+    loading();
     try { await fn(m); }
-   catch (e) {
+    catch (e) {
       app.innerHTML = `<div class="panel">
         <b>Не удалось загрузить</b><br><span class="muted">${esc(e.message)}</span>
         <p><button class="btn primary" onclick="location.reload()">↻ Повторить</button>
@@ -516,10 +501,12 @@ async function route() {
   }
 }
 window.onhashchange = route;
- // Вернулись в приложение после долгого перерыва — обновляем список
+
+// Вернулись в приложение после перерыва — обновить список
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); return; }
+  refreshBell();
   const onList = !location.hash || location.hash === '#/';
   if (me && onList && hiddenAt && Date.now() - hiddenAt > 5 * 60000) route();
 });
@@ -530,13 +517,13 @@ function renderLogin() {
   app.innerHTML = `
     <form id="f" class="panel narrow">
       <h2>Вход</h2>
-      <label>Логин<input name="email" required autocomplete="username" autocapitalize="none" placeholder="например: ivan"></label>
+      <label>Логин<input name="login" required autocomplete="username" autocapitalize="none" placeholder="например: ivan"></label>
       <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
       <button class="btn primary">Войти</button>
     </form>`;
   $('#f').onsubmit = submitForm(async fd => {
-   let login = fd.get('email').trim().toLowerCase();
-    if (!login.includes('@')) login += '@obhod.local';
+    let login = fd.get('login').trim().toLowerCase();
+    if (!login.includes('@')) login += LOGIN_DOMAIN;
     const { error } = await sb.auth.signInWithPassword({ email: login, password: fd.get('password') });
     if (error) throw new Error(
       error.message.includes('Invalid login') ? 'Неверный логин или пароль' :
@@ -545,22 +532,25 @@ function renderLogin() {
   });
 }
 
-let started = false;
 async function onSession(session) {
   const uid = session?.user?.id || null;
-  if (started && uid === currentUid) return;   // повторное событие того же пользователя
+  if (started && uid === currentUid) return;
   started = true;
   currentUid = uid;
   me = null;
   if (uid) {
-    const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+    let data, error;
+    try { ({ data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle()); }
+    catch (e) { error = e; }
     if (error || !data) {
       $('#nav').innerHTML = '';
       app.innerHTML = `<div class="panel narrow">
         <b>Не удалось загрузить профиль</b><br>
-        <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код из шага 1 выполнен полностью.')}</span>
-        <p><button class="btn" id="out2">Выйти</button></p></div>`;
+        <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код выполнен полностью.')}</span>
+        <p><button class="btn primary" onclick="location.reload()">↻ Повторить</button>
+        <button class="btn" id="out2">Выйти</button></p></div>`;
       $('#out2').onclick = () => sb.auth.signOut();
+      currentUid = null;
       return;
     }
     me = data;
@@ -569,7 +559,6 @@ async function onSession(session) {
   renderNav();
   route();
 }
-sb.auth.onAuthStateChange((_ev, session) => setTimeout(() => onSession(session), 0));
 
 // ---------- Список задач ----------
 async function renderList() {
@@ -581,7 +570,7 @@ async function renderList() {
   else if (filter.status !== 'all') q = q.eq('status', filter.status);
   if (filter.assignee) q = q.eq('assignee_id', filter.assignee);
 
-  const [tasks, people] = await Promise.all([ok(await q), isM ? getPeople() : []]);
+  const [tasks, people] = await Promise.all([q.then(ok), isM ? getPeople() : []]);
   const urls = await signed(tasks.map(t => t.photo_before));
 
   app.innerHTML = `
@@ -600,29 +589,31 @@ async function renderList() {
       ${tasks.map(t => `
         <a class="card ${overdue(t) ? 'late' : ''}" href="#/task/${t.id}">
           <img src="${urls[t.photo_before] || ''}" loading="lazy" alt="">
+          ${badge(t.status)}
           <div class="card-body">
             <b>${esc(t.title)}</b>
             ${t.location ? `<span class="muted">📍 ${esc(t.location)}</span>` : ''}
             <span class="muted">👤 ${esc(t.assignee?.full_name)}</span>
             ${t.due_date ? `<span class="muted ${overdue(t) ? 'red' : ''}">⏰ до ${fmtDate(t.due_date)}</span>` : ''}
-            ${badge(t.status)}
           </div>
-        </a>`).join('') || '<p class="muted">Задач нет</p>'}
+        </a>`).join('') || '<p class="empty">Задач нет</p>'}
     </div>`;
+
   showPushBanner();
   $('#fStatus').value = filter.status;
-  $('#fStatus').onchange = e => { filter.status = e.target.value; renderList(); };
+  $('#fStatus').onchange = e => { filter.status = e.target.value; renderList().catch(err => alert(err.message)); };
   if (isM) {
     $('#fWho').value = filter.assignee;
-    $('#fWho').onchange = e => { filter.assignee = e.target.value; renderList(); };
+    $('#fWho').onchange = e => { filter.assignee = e.target.value; renderList().catch(err => alert(err.message)); };
   }
 }
 
-// ---------- Новая задача (руководитель) ----------
+// ---------- Новая задача ----------
 async function renderNew() {
   if (me.role !== 'manager') { location.hash = '#/'; return; }
   const people = await getPeople();
   app.innerHTML = `
+    <a href="#/">← Назад</a>
     <form id="f" class="panel">
       <h2>Новая задача</h2>
       <label>Фото «до» *<input type="file" name="photo" accept="image/*" required></label>
@@ -675,7 +666,7 @@ async function renderTask(id) {
 
   const photo = (p, caption) => `
     <figure>
-      <a href="${urls[p]}" target="_blank"><img src="${urls[p]}" alt=""></a>
+      <a href="${urls[p] || '#'}" target="_blank"><img src="${urls[p] || ''}" alt=""></a>
       <figcaption>${caption}</figcaption>
     </figure>`;
 
@@ -725,13 +716,13 @@ async function renderTask(id) {
           <div>${nl2br(c.text)}</div>
         </div>`).join('') || '<p class="muted">Пока нет комментариев</p>'}
       <form id="cf">
-        <textarea name="text" rows="2" required placeholder="Написать комментарий…"></textarea>
-        <p><button class="btn primary">Отправить</button></p>
+        <textarea name="text" rows="1" required placeholder="Написать комментарий…"></textarea>
+        <button class="btn primary">➤</button>
       </form>
     </div>`;
 
   const act = fn => async () => {
-    try { await fn(); renderTask(id); } catch (e) { alert(e.message); }
+    try { await fn(); await renderTask(id); } catch (e) { alert(e.message); }
   };
 
   if (canSubmit) {
@@ -739,7 +730,7 @@ async function renderTask(id) {
     $('#submit').onsubmit = submitForm(async fd => {
       const path = await uploadPhoto(fd.get('photo'));
       ok(await sb.rpc('submit_task', { p_task: id, p_photo: path, p_comment: fd.get('comment') || '' }));
-      renderTask(id);
+      await renderTask(id);
     });
   }
   if (canReview) {
@@ -748,7 +739,7 @@ async function renderTask(id) {
       const reason = prompt('Что нужно исправить?');
       if (reason === null) return;
       if (!reason.trim()) return alert('Укажите причину');
-      await act(async () => ok(await sb.rpc('return_task', { p_task: id, p_reason: reason }))) ();
+      await act(async () => ok(await sb.rpc('return_task', { p_task: id, p_reason: reason })))();
     };
   }
   if (isM) {
@@ -760,9 +751,10 @@ async function renderTask(id) {
   }
   $('#cf').onsubmit = submitForm(async fd => {
     ok(await sb.from('comments').insert({ task_id: id, text: fd.get('text').trim() }));
-    renderTask(id);
+    await renderTask(id);
   });
 }
+
 // ================= ОТЧЁТЫ (руководитель) =================
 const repFilter = { from: '', to: '', status: 'all', assignee: '', photos: true };
 
@@ -821,13 +813,6 @@ function summarize(tasks) {
   return [...by.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
 
-async function signedMany(paths) {
-  paths = [...new Set(paths.filter(Boolean))];
-  const out = {};
-  for (let i = 0; i < paths.length; i += 100) Object.assign(out, await signed(paths.slice(i, i + 100)));
-  return out;
-}
-
 async function renderReports() {
   if (me.role !== 'manager') { location.hash = '#/'; return; }
   if (!repFilter.from) { const d = new Date(); d.setDate(1); repFilter.from = d.toLocaleDateString('sv'); }
@@ -881,10 +866,9 @@ async function renderReports() {
   $('#xls').onclick = run($('#xls'), tasks => exportExcel(tasks, { ...repFilter }, people));
 }
 
-// ---------- PDF (через печать браузера) ----------
 async function printReport(tasks, f, people) {
   if (f.photos && tasks.length > 150 &&
-      !confirm(`В отчёте ${tasks.length} задач с фото — он будет большим и долго формироваться. Продолжить?`)) return;
+      !confirm(`В отчёте ${tasks.length} задач с фото — он будет большим. Продолжить?`)) return;
 
   const urls = f.photos ? await signedMany(tasks.flatMap(t => [t.photo_before, t.photo_after])) : {};
   const sum = summarize(tasks);
@@ -931,7 +915,6 @@ async function printReport(tasks, f, people) {
       </div>`).join('')}
   </div>`;
 
-  // Ждём, пока загрузятся все фото (не дольше минуты)
   $('#repInfo').textContent = 'Загружаю фото…';
   const imgs = [...$('#report').querySelectorAll('img')];
   await Promise.race([
@@ -941,19 +924,19 @@ async function printReport(tasks, f, people) {
   $('#repInfo').textContent = `Задач: ${tasks.length}. В окне печати выберите «Сохранить как PDF». Отчёт также показан ниже.`;
 
   const oldTitle = document.title;
-  document.title = `Отчёт по задачам ${f.from || ''}—${f.to || ''}`; // станет именем PDF-файла
+  document.title = `Отчёт по задачам ${f.from || ''}—${f.to || ''}`;
   addEventListener('afterprint', () => document.title = oldTitle, { once: true });
   window.print();
 }
 
-// ---------- Excel ----------
 async function exportExcel(tasks, f, people) {
   let XLSX;
-  try { XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm'); }
-  catch { throw new Error('Не загрузился модуль Excel. Проверьте интернет и попробуйте ещё раз.'); }
+  try {
+    const m = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+    XLSX = m.utils ? m : m.default;
+  } catch { throw new Error('Не загрузился модуль Excel. Проверьте интернет и попробуйте ещё раз.'); }
   const base = location.href.split('#')[0];
 
-  // Лист «Задачи»
   const rows = tasks.map(t => ({
     '№': t.id,
     'Задача': t.title,
@@ -979,7 +962,6 @@ async function exportExcel(tasks, f, people) {
     if (cell) { cell.l = { Target: r['Ссылка'] }; cell.v = 'Открыть'; }
   });
 
-  // Лист «По сотрудникам»
   const ss = summarize(tasks);
   const total = k => ss.reduce((a, s) => a + s[k], 0);
   const avg = (sum, n) => n ? +(sum / n).toFixed(1) : '';
@@ -994,7 +976,6 @@ async function exportExcel(tasks, f, people) {
   const wsSum = XLSX.utils.json_to_sheet(sumRows);
   wsSum['!cols'] = [26, 8, 10, 13, 10, 12, 18].map(wch => ({ wch }));
 
-  // Лист «Комментарии»
   const com = tasks.flatMap(t => t.comments.map(c => ({
     '№ задачи': t.id, 'Задача': t.title, 'Автор': c.author?.full_name || '',
     'Дата': fmt(c.created_at), 'Текст': c.text,
@@ -1002,7 +983,6 @@ async function exportExcel(tasks, f, people) {
   const wsCom = XLSX.utils.json_to_sheet(com, { header: ['№ задачи', 'Задача', 'Автор', 'Дата', 'Текст'] });
   wsCom['!cols'] = [10, 36, 20, 16, 60].map(wch => ({ wch }));
 
-  // Лист «Параметры»
   const wsInfo = XLSX.utils.aoa_to_sheet([
     ['Отчёт по задачам'],
     [filterText(f, people)],
@@ -1018,6 +998,7 @@ async function exportExcel(tasks, f, people) {
   XLSX.utils.book_append_sheet(wb, wsInfo, 'Параметры');
   XLSX.writeFile(wb, `Отчёт по задачам ${f.from || ''}—${f.to || ''}.xlsx`);
 }
+
 // ---------- Уведомления ----------
 async function renderNotifications() {
   const list = ok(await sb.from('notifications').select('*')
@@ -1032,9 +1013,11 @@ async function renderNotifications() {
         </a>`).join('') || '<p class="muted">Пока пусто</p>'}
     </div>`;
   $('#readAll')?.addEventListener('click', async () => {
-    ok(await sb.from('notifications').update({ is_read: true }).eq('is_read', false));
-    refreshBell();
-    renderNotifications();
+    try {
+      ok(await sb.from('notifications').update({ is_read: true }).eq('is_read', false));
+      refreshBell();
+      await renderNotifications();
+    } catch (e) { alert(e.message); }
   });
 }
 
@@ -1045,7 +1028,7 @@ async function renderProfile() {
     on:  '✅ Уведомления включены на этом устройстве.',
     off: 'Уведомления на этом устройстве выключены.',
     denied: '⛔ Уведомления запрещены в браузере. Нажмите на значок слева от адреса сайта → Уведомления → Разрешить, затем обновите страницу.',
-    'ios-install': '📱 На iPhone: откройте сайт в <b>Safari</b> → кнопка «Поделиться» ⬆️ → «На экран Домой». Запустите приложение <b>с иконки</b>, войдите и включите уведомления здесь. Нужна iOS 16.4 или новее.',
+    'ios-install': '📱 На iPhone: откройте сайт в <b>Safari</b> → «Поделиться» ⬆️ → «На экран Домой». Запустите приложение <b>с иконки</b>, войдите и включите уведомления здесь. Нужна iOS 16.4 или новее.',
     unsupported: 'Этот браузер не поддерживает уведомления. На Android используйте Chrome, на iPhone — запуск с экрана «Домой» (iOS 16.4+).',
   }[st];
 
@@ -1065,21 +1048,24 @@ async function renderProfile() {
       <label>Telegram ID (необязательно)
         <input name="tg" inputmode="numeric" value="${me.tg_chat_id ?? ''}" placeholder="например 123456789">
       </label>
+      ${TG_BOT ? `<p class="muted">Откройте бота <a href="https://t.me/${esc(TG_BOT)}" target="_blank">@${esc(TG_BOT)}</a> и нажмите «Start».
+        Свой ID узнайте у <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>.</p>` : ''}
       <button class="btn primary">Сохранить</button>
       <button class="btn" type="button" id="pwd">Сменить пароль</button>
       <button class="btn danger" type="button" id="out">Выйти</button>
     </form>`;
 
   const guard = fn => async e => {
-    e.target.disabled = true;
+    const b = e.currentTarget;
+    b.disabled = true;
     try { await fn(); } catch (err) { alert(err.message); }
-    finally { e.target.disabled = false; }
+    finally { b.disabled = false; }
   };
   $('#pushOn')?.addEventListener('click', guard(async () => {
-    await enablePush(); alert('Уведомления включены'); renderProfile();
+    await enablePush(); alert('Уведомления включены'); await renderProfile();
   }));
   $('#pushOff')?.addEventListener('click', guard(async () => {
-    await disablePush(); renderProfile();
+    await disablePush(); await renderProfile();
   }));
   $('#pushTest')?.addEventListener('click', guard(async () => {
     ok(await sb.rpc('test_push'));
@@ -1102,27 +1088,26 @@ async function renderProfile() {
     try { ok(await sb.auth.updateUser({ password: p })); alert('Пароль изменён'); }
     catch (e) { alert(e.message); }
   };
-  // При выходе устройство перестаёт получать уведомления этого сотрудника
   $('#out').onclick = async () => {
     await disablePush(false).catch(() => {});
-    sb.auth.signOut();
+    await sb.auth.signOut();
   };
 }
 
-// ---------- Сотрудники (руководитель) ----------
+// ---------- Сотрудники ----------
 async function renderTeam() {
   if (me.role !== 'manager') { location.hash = '#/'; return; }
   const people = await getPeople();
   app.innerHTML = `
     <div class="panel">
       <h2>Сотрудники (${people.length})</h2>
-      <p class="muted">Новых сотрудников добавляют в Supabase: Authentication → Users → Add user.
-        Здесь можно поменять имя и роль. ✈️ — Telegram подключён.</p>
-      <table>
+      <p class="muted">Новых сотрудников добавляют в Supabase: Authentication → Users → Add user
+        (email вида ivan${esc(LOGIN_DOMAIN)}, отметить Auto Confirm User). Здесь можно поменять имя и роль. ✈️ — Telegram подключён.</p>
+      <table class="team">
         ${people.map(p => `
           <tr>
             <td><input class="nm" data-id="${p.id}" value="${esc(p.full_name)}"></td>
-            <td class="muted">${esc(p.email)}</td>
+            <td class="muted">${esc((p.email || '').replace(LOGIN_DOMAIN, ''))}</td>
             <td><select class="rl" data-id="${p.id}">
               <option value="executor" ${p.role === 'executor' ? 'selected' : ''}>Исполнитель</option>
               <option value="manager"  ${p.role === 'manager'  ? 'selected' : ''}>Руководитель</option>
@@ -1138,6 +1123,48 @@ async function renderTeam() {
   app.querySelectorAll('.nm').forEach(i => i.onchange = () => save(i.dataset.id, { full_name: i.value.trim() }));
   app.querySelectorAll('.rl').forEach(s => s.onchange = () => save(s.dataset.id, { role: s.value }));
 }
+
+// ---------- Первичная настройка push ----------
+async function renderSetup() {
+  if (me.role !== 'manager') { location.hash = '#/'; return; }
+  const existing = ok(await sb.rpc('get_vapid_public'));
+  app.innerHTML = `
+    <a href="#/profile">← Профиль</a>
+    <div class="panel">
+      <h2>⚙️ Первичная настройка push</h2>
+      ${existing ? '<p class="red">Ключи уже настроены. Новые ключи отключат уведомления у всех — каждому придётся включать их заново.</p>' : ''}
+      <button class="btn primary" id="gen">Сгенерировать ключи</button>
+      <div id="setupOut" hidden>
+        <p>Скопируйте код, выполните в Supabase → <b>SQL Editor</b> → Run.
+          <b>Никому не показывайте</b> — там секретный ключ.</p>
+        <textarea id="sql" rows="9" readonly></textarea>
+        <p><button class="btn" id="copy">📋 Скопировать</button></p>
+      </div>
+    </div>`;
+  $('#gen').onclick = async () => {
+    if (existing && !confirm('Точно заменить ключи?')) return;
+    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    const pub = b64url(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
+    const priv = (await crypto.subtle.exportKey('jwk', kp.privateKey)).d;
+    const secret = b64url(crypto.getRandomValues(new Uint8Array(24)));
+    $('#sql').value =
+`insert into public.app_config(key, value) values
+  ('vapid_public',  '${pub}'),
+  ('vapid_private', '${priv}'),
+  ('push_secret',   '${secret}'),
+  ('supabase_url',  '${SUPABASE_URL.replace(/\/+$/, '')}')
+on conflict (key) do update set value = excluded.value;`;
+    $('#setupOut').hidden = false;
+  };
+  $('#copy').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#sql').value); }
+    catch { $('#sql').select(); document.execCommand('copy'); }
+    alert('Скопировано');
+  };
+}
+
+// ---------- Старт ----------
+sb.auth.onAuthStateChange((_ev, session) => setTimeout(() => onSession(session), 0));
 </script>
 </body>
 </html>
