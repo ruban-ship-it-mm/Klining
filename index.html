@@ -473,7 +473,7 @@ const getPeople = async () =>
 function renderNav() {
   $('#nav').innerHTML = me ? `
     <a id="bell" href="#/notifications">🔔</a>
-    ${me.role === 'manager' ? '<a href="#/team" title="Сотрудники">👥</a>' : ''}
+    ${me.role === 'manager' ? '<a href="#/reports" title="Отчёты">📊</a><a href="#/team" title="Сотрудники">👥</a>' : ''}
     <a href="#/profile">${esc(me.full_name || 'Профиль')}</a>` : '';
   refreshBell();
 }
