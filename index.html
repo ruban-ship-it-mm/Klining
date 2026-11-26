@@ -1018,7 +1018,6 @@ async function exportExcel(tasks, f, people) {
   XLSX.utils.book_append_sheet(wb, wsInfo, 'Параметры');
   XLSX.writeFile(wb, `Отчёт по задачам ${f.from || ''}—${f.to || ''}.xlsx`);
 }
-// ====================================================
 // ---------- Уведомления ----------
 async function renderNotifications() {
   const list = ok(await sb.from('notifications').select('*')
