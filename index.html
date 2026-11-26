@@ -54,14 +54,24 @@
   <nav id="nav"></nav>
 </header>
 <main id="app"><p class="muted">Загрузка…</p></main>
-
+<script>
+  function showFatal(msg) {
+    document.getElementById('app').innerHTML =
+      '<div class="panel"><b>Ошибка запуска</b><br>' + String(msg).replace(/</g, '&lt;') + '</div>';
+  }
+  window.addEventListener('error', e => showFatal(e.message));
+  window.addEventListener('unhandledrejection', e => showFatal(e.reason?.message || e.reason));
+  setTimeout(() => {
+    if (document.getElementById('app').textContent.trim() === 'Загрузка…')
+      showFatal('Приложение не запустилось за 10 секунд. Возможно, не загрузилась библиотека Supabase (cdn.jsdelivr.net) — попробуйте другую сеть или VPN.');
+  }, 10000);
+</script>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // ============ НАСТРОЙКИ — замените на свои ============
-const SUPABASE_URL = 'https://XXXXXXXX.supabase.co';
-const SUPABASE_KEY = 'ВСТАВЬТЕ_ANON_ИЛИ_PUBLISHABLE_KEY';
-const TG_BOT       = 'имя_вашего_бота';   // без @, например obhod_tasks_bot
+const SUPABASE_URL = 'https://abcdefgh.supabase.co';   // без / в конце
+const SUPABASE_KEY = 'eyJhbGciOi...или sb_publishable_...';
 // =====================================================
 
 const sb  = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -197,11 +207,26 @@ function renderLogin() {
   });
 }
 
+let started = false;
 async function onSession(session) {
   const uid = session?.user?.id || null;
-  if (uid === currentUid && (me || !uid)) return;
+  if (started && uid === currentUid) return;   // повторное событие того же пользователя
+  started = true;
   currentUid = uid;
-  me = uid ? ok(await sb.from('profiles').select('*').eq('id', uid).single()) : null;
+  me = null;
+  if (uid) {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+    if (error || !data) {
+      $('#nav').innerHTML = '';
+      app.innerHTML = `<div class="panel narrow">
+        <b>Не удалось загрузить профиль</b><br>
+        <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код из шага 1 выполнен полностью.')}</span>
+        <p><button class="btn" id="out2">Выйти</button></p></div>`;
+      $('#out2').onclick = () => sb.auth.signOut();
+      return;
+    }
+    me = data;
+  }
   renderNav();
   route();
 }
