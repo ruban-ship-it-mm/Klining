@@ -196,14 +196,18 @@ function renderLogin() {
   app.innerHTML = `
     <form id="f" class="panel narrow">
       <h2>Вход</h2>
-      <label>Логин (email)<input name="email" type="email" required autocomplete="username"></label>
+      <label>Логин<input name="email" required autocomplete="username" autocapitalize="none" placeholder="например: ivan"></label>
       <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
       <button class="btn primary">Войти</button>
     </form>`;
   $('#f').onsubmit = submitForm(async fd => {
-    ok(await sb.auth.signInWithPassword({
-      email: fd.get('email').trim(), password: fd.get('password'),
-    }));
+   let login = fd.get('email').trim().toLowerCase();
+    if (!login.includes('@')) login += '@obhod.local';
+    const { error } = await sb.auth.signInWithPassword({ email: login, password: fd.get('password') });
+    if (error) throw new Error(
+      error.message.includes('Invalid login') ? 'Неверный логин или пароль' :
+      error.message.includes('not confirmed') ? 'Сотрудник не подтверждён — отметьте Auto Confirm User' :
+      error.message);
   });
 }
 
