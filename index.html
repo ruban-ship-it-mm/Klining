@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#1f2937">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Обходы">
 <title>Обходы — задачи с фото</title>
 <style>
   *{box-sizing:border-box}[hidden]{display:none!important}
@@ -145,7 +148,122 @@ async function signed(paths) {
   const data = ok(await sb.storage.from('photos').createSignedUrls(paths, 3600));
   return Object.fromEntries(data.map(d => [d.path, d.signedUrl]));
 }
+// ================= PUSH-УВЕДОМЛЕНИЯ =================
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW:', e));
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data?.url) location.href = e.data.url; });
+}
+
+const b64url = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const fromB64url = s => Uint8Array.from(
+  atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+
+function swReady() {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, rej) => setTimeout(() => rej(new Error(
+      'Фоновый помощник не запустился. Проверьте, что файл sw.js загружен в репозиторий.')), 8000)),
+  ]);
+}
+
+async function pushStatus() {
+  if (!pushSupported) return isIOS && !isStandalone ? 'ios-install' : 'unsupported';
+  if (Notification.permission === 'denied') return 'denied';
+  if (Notification.permission !== 'granted') return 'off';
+  const sub = await (await swReady()).pushManager.getSubscription();
+  return sub ? 'on' : 'off';
+}
+
+async function saveSub(sub) {
+  const j = sub.toJSON();
+  ok(await sb.rpc('save_push_subscription', {
+    p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth,
+    p_ua: navigator.userAgent.slice(0, 200),
+  }));
+}
+
+async function enablePush() {
+  // Разрешение спрашиваем сразу по нажатию — иначе iPhone откажет
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') throw new Error('Уведомления не разрешены. Разрешите их в настройках браузера для этого сайта.');
+  const key = ok(await sb.rpc('get_vapid_public'));
+  if (!key) throw new Error('Push ещё не настроен: руководитель должен выполнить «Первичную настройку push».');
+  const reg = await swReady();
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: fromB64url(key) });
+  await saveSub(sub);
+}
+
+async function disablePush(unsubscribe = true) {
+  if (!pushSupported) return;
+  const sub = await (await swReady()).pushManager.getSubscription();
+  if (!sub) return;
+  await sb.rpc('delete_push_subscription', { p_endpoint: sub.endpoint });
+  if (unsubscribe) await sub.unsubscribe();
+}
+
+// При входе: если на устройстве уже разрешены уведомления — привязать к текущему сотруднику
+async function syncPush() {
+  try {
+    if (!pushSupported || Notification.permission !== 'granted') return;
+    const sub = await (await swReady()).pushManager.getSubscription();
+    if (sub) await saveSub(sub);
+  } catch (e) { console.warn(e); }
+}
+
+async function showPushBanner() {
+  const st = await pushStatus().catch(() => 'unsupported');
+  if (!['off', 'ios-install'].includes(st) || !$('#fStatus')) return;
+  app.insertAdjacentHTML('afterbegin', `
+    <a href="#/profile" class="panel" style="display:block;background:#eff6ff;text-decoration:none;color:inherit">
+      🔔 <b>Включите уведомления</b>, чтобы не пропускать задачи →
+    </a>`);
+}
+
+// Первичная настройка (руководитель, один раз)
+async function renderSetup() {
+  if (me.role !== 'manager') { location.hash = '#/'; return; }
+  const existing = ok(await sb.rpc('get_vapid_public'));
+  app.innerHTML = `
+    <a href="#/profile">← Профиль</a>
+    <div class="panel">
+      <h2>⚙️ Первичная настройка push</h2>
+      ${existing ? '<p class="red">Ключи уже настроены. Новые ключи отключат уведомления у всех — каждому придётся включать их заново.</p>' : ''}
+      <button class="btn primary" id="gen">Сгенерировать ключи</button>
+      <div id="setupOut" hidden>
+        <p>Скопируйте код, выполните в Supabase → <b>SQL Editor</b> → Run.
+          <b>Никому не показывайте</b> — там секретный ключ.</p>
+        <textarea id="sql" rows="9" readonly></textarea>
+        <p><button class="btn" id="copy">📋 Скопировать</button></p>
+      </div>
+    </div>`;
+  $('#gen').onclick = async () => {
+    if (existing && !confirm('Точно заменить ключи?')) return;
+    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    const pub = b64url(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
+    const priv = (await crypto.subtle.exportKey('jwk', kp.privateKey)).d;
+    const secret = b64url(crypto.getRandomValues(new Uint8Array(24)));
+    $('#sql').value =
+`insert into public.app_config(key, value) values
+  ('vapid_public',  '${pub}'),
+  ('vapid_private', '${priv}'),
+  ('push_secret',   '${secret}'),
+  ('supabase_url',  '${SUPABASE_URL.replace(/\/+$/, '')}')
+on conflict (key) do update set value = excluded.value;`;
+    $('#setupOut').hidden = false;
+  };
+  $('#copy').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#sql').value); }
+    catch { $('#sql').select(); document.execCommand('copy'); }
+    alert('Скопировано');
+  };
+}
+// ====================================================
 const getPeople = async () =>
   ok(await sb.from('profiles').select('*').order('full_name'));
 
@@ -174,6 +292,7 @@ const routes = [
   [/^#\/notifications$/,  () => renderNotifications()],
   [/^#\/profile$/,        () => renderProfile()],
   [/^#\/team$/,           () => renderTeam()],
+  [/^#\/setup$/,          () => renderSetup()],
   [/.*/,                  () => renderList()],
 ];
 
@@ -230,6 +349,7 @@ async function onSession(session) {
       return;
     }
     me = data;
+    syncPush();
   }
   renderNav();
   route();
@@ -274,7 +394,7 @@ async function renderList() {
           </div>
         </a>`).join('') || '<p class="muted">Задач нет</p>'}
     </div>`;
-
+  showPushBanner();
   $('#fStatus').value = filter.status;
   $('#fStatus').onchange = e => { filter.status = e.target.value; renderList(); };
   if (isM) {
@@ -450,24 +570,53 @@ async function renderNotifications() {
 }
 
 // ---------- Профиль ----------
-function renderProfile() {
+async function renderProfile() {
+  const st = await pushStatus().catch(() => 'unsupported');
+  const pushText = {
+    on:  '✅ Уведомления включены на этом устройстве.',
+    off: 'Уведомления на этом устройстве выключены.',
+    denied: '⛔ Уведомления запрещены в браузере. Нажмите на значок слева от адреса сайта → Уведомления → Разрешить, затем обновите страницу.',
+    'ios-install': '📱 На iPhone: откройте сайт в <b>Safari</b> → кнопка «Поделиться» ⬆️ → «На экран Домой». Запустите приложение <b>с иконки</b>, войдите и включите уведомления здесь. Нужна iOS 16.4 или новее.',
+    unsupported: 'Этот браузер не поддерживает уведомления. На Android используйте Chrome, на iPhone — запуск с экрана «Домой» (iOS 16.4+).',
+  }[st];
+
   app.innerHTML = `
+    <div class="panel narrow">
+      <h2>🔔 Уведомления</h2>
+      <p>${pushText}</p>
+      ${st === 'off' ? '<button class="btn primary" id="pushOn">Включить уведомления</button>' : ''}
+      ${st === 'on' ? '<button class="btn" id="pushTest">Проверить</button> <button class="btn" id="pushOff">Выключить</button>' : ''}
+      ${me.role === 'manager' ? '<p class="muted"><a href="#/setup">⚙️ Первичная настройка push (один раз)</a></p>' : ''}
+    </div>
+
     <form id="f" class="panel narrow">
       <h2>Профиль</h2>
       <p class="muted">${esc(me.email)} · ${me.role === 'manager' ? 'Руководитель' : 'Исполнитель'}</p>
       <label>Имя и фамилия<input name="full_name" required maxlength="100" value="${esc(me.full_name)}"></label>
-      <label>Telegram ID для уведомлений
+      <label>Telegram ID (необязательно)
         <input name="tg" inputmode="numeric" value="${me.tg_chat_id ?? ''}" placeholder="например 123456789">
       </label>
-      <p class="muted">
-        1) Откройте бота <a href="https://t.me/${esc(TG_BOT)}" target="_blank">@${esc(TG_BOT)}</a> и нажмите «Start».<br>
-        2) Напишите <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a> — он пришлёт ваш ID.<br>
-        3) Вставьте ID сюда и сохраните.
-      </p>
       <button class="btn primary">Сохранить</button>
       <button class="btn" type="button" id="pwd">Сменить пароль</button>
       <button class="btn danger" type="button" id="out">Выйти</button>
     </form>`;
+
+  const guard = fn => async e => {
+    e.target.disabled = true;
+    try { await fn(); } catch (err) { alert(err.message); }
+    finally { e.target.disabled = false; }
+  };
+  $('#pushOn')?.addEventListener('click', guard(async () => {
+    await enablePush(); alert('Уведомления включены'); renderProfile();
+  }));
+  $('#pushOff')?.addEventListener('click', guard(async () => {
+    await disablePush(); renderProfile();
+  }));
+  $('#pushTest')?.addEventListener('click', guard(async () => {
+    ok(await sb.rpc('test_push'));
+    alert('Отправлено. Уведомление должно прийти в течение нескольких секунд.');
+  }));
+
   $('#f').onsubmit = submitForm(async fd => {
     const tg = fd.get('tg').trim();
     if (tg && !/^-?\d+$/.test(tg)) throw new Error('Telegram ID — только цифры');
@@ -484,7 +633,11 @@ function renderProfile() {
     try { ok(await sb.auth.updateUser({ password: p })); alert('Пароль изменён'); }
     catch (e) { alert(e.message); }
   };
-  $('#out').onclick = () => sb.auth.signOut();
+  // При выходе устройство перестаёт получать уведомления этого сотрудника
+  $('#out').onclick = async () => {
+    await disablePush(false).catch(() => {});
+    sb.auth.signOut();
+  };
 }
 
 // ---------- Сотрудники (руководитель) ----------
