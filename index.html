@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Обходы">
 <title>Обходы — задачи с фото</title>
+  
 <style>
   :root{
     --bg:#f4f5f9; --surface:#fff; --surface-2:#f1f3f8; --text:#0f172a; --muted:#64748b; --line:#e6e8f0;
@@ -190,6 +191,51 @@
   .muted{color:var(--muted);font-size:13px}
   .red{color:var(--red);font-weight:700}
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+  /* ---------- Отчёты ---------- */
+  @media (max-width:420px){ nav a{padding:7px 9px;max-width:90px} }
+  .rep-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px}
+  label.chk{display:flex;align-items:center;gap:8px;color:var(--text);font-size:15px}
+  .report{background:#fff;color:#0f172a;border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);font-size:13px}
+  .report h1{font-size:22px;margin:0 0 4px}
+  .report h3{margin:22px 0 8px;color:#0f172a}
+  .rep-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid #0f172a;padding-bottom:12px}
+  .rep-muted{color:#64748b;font-size:12px}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+  .kpis div{background:#f1f3f8;border-radius:12px;padding:10px;text-align:center;color:#64748b;font-size:12px}
+  .kpis b{display:block;font-size:24px;color:#0f172a}
+  .k-done b{color:#15803d}.k-review b{color:#1d4ed8}.k-open b{color:#b45309}.k-late b{color:#e11d48}
+  .rep-table{display:table;width:100%;border-collapse:collapse}
+  .rep-table thead{display:table-header-group}.rep-table tbody{display:table-row-group}.rep-table tr{display:table-row}
+  .rep-table th,.rep-table td{display:table-cell;border:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:12px;color:#0f172a}
+  .rep-table th{background:#f1f3f8}
+  .rep-table td:first-child,.rep-table th:first-child{text-align:left}
+  .rep-task{display:grid;grid-template-columns:260px 1fr;gap:14px;padding:12px 0;border-top:1px solid #e2e8f0;break-inside:avoid;page-break-inside:avoid}
+  .rep-task.no-ph{grid-template-columns:1fr}
+  .rep-photos{display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:start}
+  .rep-photos figure img{height:100px;max-height:none;object-fit:cover;border-radius:8px}
+  .rep-photos figcaption{top:4px;left:4px;font-size:10px;padding:2px 7px}
+  .rep-title{font-weight:700;font-size:14px;margin-bottom:2px}
+  .rep-late{color:#e11d48;font-weight:700;font-size:12px}
+  .rep-desc{margin-top:4px}
+  .rep-comment{font-size:12px;color:#334155;margin-top:2px}
+  .report .badge{font-size:10px;padding:2px 8px}
+  .report .badge.open{background:#fffbeb;color:#b45309}
+  .report .badge.review{background:#eff6ff;color:#1d4ed8}
+  .report .badge.done{background:#ecfdf3;color:#15803d}
+  @media (max-width:640px){ .rep-task{grid-template-columns:1fr} .kpis{grid-template-columns:repeat(3,1fr)} }
+
+  @media print{
+    @page{size:A4;margin:12mm}
+    body{background:#fff!important}
+    header,nav,.no-print{display:none!important}
+    main{padding:0!important;max-width:none}
+    #app > *{animation:none!important}
+    .report{box-shadow:none;padding:0;border-radius:0}
+    .rep-task{grid-template-columns:240px 1fr!important}
+    .rep-task.no-ph{grid-template-columns:1fr!important}
+    .kpis{grid-template-columns:repeat(5,1fr)!important}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
 </style>
 </head>
 <body>
@@ -383,7 +429,7 @@ async function showPushBanner() {
 
 // Первичная настройка (руководитель, один раз)
 async function renderSetup() {
-  if (me.role !== 'manager') { location.hash = '#/'; return; }
+  if (${me.role === 'manager' ? '<a href="#/reports" title="Отчёты">📊</a><a href="#/team" title="Сотрудники">👥</a>' : ''}
   const existing = ok(await sb.rpc('get_vapid_public'));
   app.innerHTML = `
     <a href="#/profile">← Профиль</a>
@@ -449,6 +495,7 @@ const routes = [
   [/^#\/profile$/,        () => renderProfile()],
   [/^#\/team$/,           () => renderTeam()],
   [/^#\/setup$/,          () => renderSetup()],
+  [/^#\/reports$/,        () => renderReports()],
   [/.*/,                  () => renderList()],
 ];
 
@@ -716,7 +763,262 @@ async function renderTask(id) {
     renderTask(id);
   });
 }
+// ================= ОТЧЁТЫ (руководитель) =================
+const repFilter = { from: '', to: '', status: 'all', assignee: '', photos: true };
 
+const daysBetween = (a, b) =>
+  a && b ? Math.round((new Date(b) - new Date(a)) / 864e5 * 10) / 10 : null;
+
+function lateInfo(t) {
+  if (!t.due_date) return '';
+  const end = t.submitted_at ? new Date(t.submitted_at).toLocaleDateString('sv') : today();
+  if (end <= t.due_date) return '';
+  return t.submitted_at ? 'Сдана с опозданием' : 'Просрочена';
+}
+
+function filterText(f, people) {
+  const who = f.assignee ? (people.find(p => p.id === f.assignee)?.full_name || '—') : 'все';
+  const st = { all: 'все', active: 'активные', open: 'в работе', review: 'на проверке', done: 'закрытые' }[f.status];
+  return `Период: ${fmtDate(f.from) || 'с начала'} — ${fmtDate(f.to) || 'по сегодня'} · Исполнитель: ${who} · Статус: ${st}`;
+}
+
+async function loadReportTasks(f) {
+  const all = [];
+  for (let from = 0; ; from += 1000) {
+    let q = sb.from('tasks').select(`id,title,location,description,status,due_date,
+        created_at,submitted_at,closed_at,photo_before,photo_after,
+        author:profiles!tasks_author_id_fkey(full_name),
+        assignee:profiles!tasks_assignee_id_fkey(id,full_name),
+        comments(text,created_at,author:profiles(full_name))`)
+      .order('id').range(from, from + 999);
+    if (f.from) q = q.gte('created_at', new Date(f.from + 'T00:00').toISOString());
+    if (f.to) {
+      const d = new Date(f.to + 'T00:00'); d.setDate(d.getDate() + 1);
+      q = q.lt('created_at', d.toISOString());
+    }
+    if (f.status === 'active') q = q.in('status', ['open', 'review']);
+    else if (f.status !== 'all') q = q.eq('status', f.status);
+    if (f.assignee) q = q.eq('assignee_id', f.assignee);
+    const rows = ok(await q);
+    all.push(...rows);
+    if (rows.length < 1000) break;
+  }
+  all.forEach(t => (t.comments ||= []).sort((a, b) => a.created_at.localeCompare(b.created_at)));
+  return all;
+}
+
+function summarize(tasks) {
+  const by = new Map();
+  for (const t of tasks) {
+    const k = t.assignee?.full_name || '—';
+    const s = by.get(k) || { name: k, total: 0, open: 0, review: 0, done: 0, late: 0, sumDays: 0, nDays: 0 };
+    s.total++; s[t.status]++;
+    if (lateInfo(t)) s.late++;
+    const d = daysBetween(t.created_at, t.submitted_at);
+    if (t.status === 'done' && d != null) { s.sumDays += d; s.nDays++; }
+    by.set(k, s);
+  }
+  return [...by.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+async function signedMany(paths) {
+  paths = [...new Set(paths.filter(Boolean))];
+  const out = {};
+  for (let i = 0; i < paths.length; i += 100) Object.assign(out, await signed(paths.slice(i, i + 100)));
+  return out;
+}
+
+async function renderReports() {
+  if (me.role !== 'manager') { location.hash = '#/'; return; }
+  if (!repFilter.from) { const d = new Date(); d.setDate(1); repFilter.from = d.toLocaleDateString('sv'); }
+  if (!repFilter.to) repFilter.to = today();
+  const people = await getPeople();
+
+  app.innerHTML = `
+    <div class="panel no-print">
+      <h2>📊 Отчёты</h2>
+      <form id="rf" class="rep-filters">
+        <label>Создана с<input type="date" name="from"></label>
+        <label>по<input type="date" name="to"></label>
+        <label>Статус<select name="status">
+          <option value="all">Все</option><option value="active">Активные</option>
+          <option value="open">В работе</option><option value="review">На проверке</option>
+          <option value="done">Закрытые</option></select></label>
+        <label>Исполнитель<select name="assignee"><option value="">Все</option>
+          ${people.map(p => `<option value="${p.id}">${esc(p.full_name)}</option>`).join('')}</select></label>
+      </form>
+      <label class="chk"><input type="checkbox" id="rPhotos"> Фото «до / после» в PDF</label>
+      <div>
+        <button class="btn primary" id="pdf">📄 PDF-отчёт</button>
+        <button class="btn" id="xls">📊 Excel</button>
+      </div>
+      <p class="muted" id="repInfo">Выберите фильтры и нажмите кнопку.</p>
+    </div>
+    <div id="report"></div>`;
+
+  const form = $('#rf'), keys = ['from', 'to', 'status', 'assignee'];
+  keys.forEach(k => form.elements[k].value = repFilter[k]);
+  $('#rPhotos').checked = repFilter.photos;
+  form.onchange = () => keys.forEach(k => repFilter[k] = form.elements[k].value);
+  $('#rPhotos').onchange = e => repFilter.photos = e.target.checked;
+
+  const run = (btn, fn) => async () => {
+    const btns = [$('#pdf'), $('#xls')], old = btn.textContent;
+    btns.forEach(b => b.disabled = true);
+    btn.textContent = '⏳ Формирую…';
+    try {
+      if (repFilter.from && repFilter.to && repFilter.from > repFilter.to)
+        throw new Error('Дата «с» позже даты «по»');
+      $('#repInfo').textContent = 'Загружаю задачи…';
+      const tasks = await loadReportTasks(repFilter);
+      if (!tasks.length) throw new Error('По выбранным фильтрам задач нет');
+      $('#repInfo').textContent = `Задач в отчёте: ${tasks.length}`;
+      await fn(tasks);
+    } catch (e) { $('#repInfo').textContent = ''; alert(e.message); }
+    finally { btns.forEach(b => b.disabled = false); btn.textContent = old; }
+  };
+  $('#pdf').onclick = run($('#pdf'), tasks => printReport(tasks, { ...repFilter }, people));
+  $('#xls').onclick = run($('#xls'), tasks => exportExcel(tasks, { ...repFilter }, people));
+}
+
+// ---------- PDF (через печать браузера) ----------
+async function printReport(tasks, f, people) {
+  if (f.photos && tasks.length > 150 &&
+      !confirm(`В отчёте ${tasks.length} задач с фото — он будет большим и долго формироваться. Продолжить?`)) return;
+
+  const urls = f.photos ? await signedMany(tasks.flatMap(t => [t.photo_before, t.photo_after])) : {};
+  const sum = summarize(tasks);
+  const cnt = s => tasks.filter(t => t.status === s).length;
+  const img = (p, cap) => p && urls[p]
+    ? `<figure><img src="${urls[p]}" alt=""><figcaption>${cap}</figcaption></figure>` : '';
+
+  $('#report').innerHTML = `
+  <div class="report">
+    <div class="rep-head">
+      <div><h1>Отчёт по задачам</h1><div class="rep-muted">${esc(filterText(f, people))}</div></div>
+      <div class="rep-muted" style="text-align:right">Сформирован ${fmt(new Date().toISOString())}<br>${esc(me.full_name)}</div>
+    </div>
+    <div class="kpis">
+      <div><b>${tasks.length}</b>Всего</div>
+      <div class="k-done"><b>${cnt('done')}</b>Закрыто</div>
+      <div class="k-review"><b>${cnt('review')}</b>На проверке</div>
+      <div class="k-open"><b>${cnt('open')}</b>В работе</div>
+      <div class="k-late"><b>${tasks.filter(lateInfo).length}</b>Просрочено</div>
+    </div>
+
+    <h3>По сотрудникам</h3>
+    <table class="rep-table">
+      <thead><tr><th>Сотрудник</th><th>Всего</th><th>Закрыто</th><th>На проверке</th>
+        <th>В работе</th><th>Просрочено</th><th>Ср. срок, дн.</th></tr></thead>
+      <tbody>${sum.map(s => `<tr><td>${esc(s.name)}</td><td>${s.total}</td><td>${s.done}</td>
+        <td>${s.review}</td><td>${s.open}</td><td>${s.late || ''}</td>
+        <td>${s.nDays ? (s.sumDays / s.nDays).toFixed(1) : ''}</td></tr>`).join('')}</tbody>
+    </table>
+
+    <h3>Задачи (${tasks.length})</h3>
+    ${tasks.map(t => `
+      <div class="rep-task ${f.photos ? '' : 'no-ph'}">
+        ${f.photos ? `<div class="rep-photos">${img(t.photo_before, 'До')}${img(t.photo_after, 'После')}</div>` : ''}
+        <div>
+          <div class="rep-title">№${t.id}. ${esc(t.title)} <span class="badge ${t.status}">${STATUS[t.status]}</span></div>
+          <div class="rep-muted">👤 ${esc(t.assignee?.full_name)}${t.location ? ` · 📍 ${esc(t.location)}` : ''}${t.due_date ? ` · ⏰ срок ${fmtDate(t.due_date)}` : ''}</div>
+          <div class="rep-muted">Создана ${fmt(t.created_at)}${t.submitted_at ? ` · сдана ${fmt(t.submitted_at)}` : ''}${t.closed_at ? ` · принята ${fmt(t.closed_at)}` : ''}</div>
+          ${lateInfo(t) ? `<div class="rep-late">⚠ ${lateInfo(t)}</div>` : ''}
+          ${t.description ? `<div class="rep-desc">${nl2br(t.description)}</div>` : ''}
+          ${t.comments.slice(-3).map(c =>
+            `<div class="rep-comment"><b>${esc(c.author?.full_name)}:</b> ${esc(c.text)}</div>`).join('')}
+        </div>
+      </div>`).join('')}
+  </div>`;
+
+  // Ждём, пока загрузятся все фото (не дольше минуты)
+  $('#repInfo').textContent = 'Загружаю фото…';
+  const imgs = [...$('#report').querySelectorAll('img')];
+  await Promise.race([
+    Promise.all(imgs.map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; }))),
+    new Promise(r => setTimeout(r, 60000)),
+  ]);
+  $('#repInfo').textContent = `Задач: ${tasks.length}. В окне печати выберите «Сохранить как PDF». Отчёт также показан ниже.`;
+
+  const oldTitle = document.title;
+  document.title = `Отчёт по задачам ${f.from || ''}—${f.to || ''}`; // станет именем PDF-файла
+  addEventListener('afterprint', () => document.title = oldTitle, { once: true });
+  window.print();
+}
+
+// ---------- Excel ----------
+async function exportExcel(tasks, f, people) {
+  let XLSX;
+  try { XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm'); }
+  catch { throw new Error('Не загрузился модуль Excel. Проверьте интернет и попробуйте ещё раз.'); }
+  const base = location.href.split('#')[0];
+
+  // Лист «Задачи»
+  const rows = tasks.map(t => ({
+    '№': t.id,
+    'Задача': t.title,
+    'Место': t.location,
+    'Описание': t.description,
+    'Ответственный': t.assignee?.full_name || '',
+    'Поставил': t.author?.full_name || '',
+    'Статус': STATUS[t.status],
+    'Создана': fmt(t.created_at),
+    'Срок': fmtDate(t.due_date),
+    'Сдана': fmt(t.submitted_at),
+    'Принята': fmt(t.closed_at),
+    'Дней до сдачи': daysBetween(t.created_at, t.submitted_at) ?? '',
+    'Просрочка': lateInfo(t),
+    'Комментариев': t.comments.length,
+    'Ссылка': base + '#/task/' + t.id,
+  }));
+  const wsTasks = XLSX.utils.json_to_sheet(rows);
+  wsTasks['!cols'] = [6, 40, 24, 40, 20, 20, 13, 16, 11, 16, 16, 12, 18, 13, 11].map(wch => ({ wch }));
+  wsTasks['!autofilter'] = { ref: wsTasks['!ref'] };
+  rows.forEach((r, i) => {
+    const cell = wsTasks[XLSX.utils.encode_cell({ r: i + 1, c: 14 })];
+    if (cell) { cell.l = { Target: r['Ссылка'] }; cell.v = 'Открыть'; }
+  });
+
+  // Лист «По сотрудникам»
+  const ss = summarize(tasks);
+  const total = k => ss.reduce((a, s) => a + s[k], 0);
+  const avg = (sum, n) => n ? +(sum / n).toFixed(1) : '';
+  const sumRows = ss.map(s => ({
+    'Сотрудник': s.name, 'Всего': s.total, 'Закрыто': s.done, 'На проверке': s.review,
+    'В работе': s.open, 'Просрочено': s.late, 'Ср. срок сдачи, дн.': avg(s.sumDays, s.nDays),
+  }));
+  sumRows.push({
+    'Сотрудник': 'ИТОГО', 'Всего': total('total'), 'Закрыто': total('done'), 'На проверке': total('review'),
+    'В работе': total('open'), 'Просрочено': total('late'), 'Ср. срок сдачи, дн.': avg(total('sumDays'), total('nDays')),
+  });
+  const wsSum = XLSX.utils.json_to_sheet(sumRows);
+  wsSum['!cols'] = [26, 8, 10, 13, 10, 12, 18].map(wch => ({ wch }));
+
+  // Лист «Комментарии»
+  const com = tasks.flatMap(t => t.comments.map(c => ({
+    '№ задачи': t.id, 'Задача': t.title, 'Автор': c.author?.full_name || '',
+    'Дата': fmt(c.created_at), 'Текст': c.text,
+  })));
+  const wsCom = XLSX.utils.json_to_sheet(com, { header: ['№ задачи', 'Задача', 'Автор', 'Дата', 'Текст'] });
+  wsCom['!cols'] = [10, 36, 20, 16, 60].map(wch => ({ wch }));
+
+  // Лист «Параметры»
+  const wsInfo = XLSX.utils.aoa_to_sheet([
+    ['Отчёт по задачам'],
+    [filterText(f, people)],
+    ['Сформирован: ' + fmt(new Date().toISOString()) + ' · ' + me.full_name],
+    ['Задач: ' + tasks.length],
+  ]);
+  wsInfo['!cols'] = [{ wch: 100 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsTasks, 'Задачи');
+  XLSX.utils.book_append_sheet(wb, wsSum, 'По сотрудникам');
+  XLSX.utils.book_append_sheet(wb, wsCom, 'Комментарии');
+  XLSX.utils.book_append_sheet(wb, wsInfo, 'Параметры');
+  XLSX.writeFile(wb, `Отчёт по задачам ${f.from || ''}—${f.to || ''}.xlsx`);
+}
+// ====================================================
 // ---------- Уведомления ----------
 async function renderNotifications() {
   const list = ok(await sb.from('notifications').select('*')
