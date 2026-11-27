@@ -613,7 +613,7 @@ function initials(name){
 
 function renderNav() {
   const av = $('#avatarLink'), tabs = $('#tabbar');
-if (!av || !tabs) return;
+  if (!av || !tabs) return;
 
   if (!me) {
     av.hidden = true;
@@ -625,19 +625,16 @@ if (!av || !tabs) return;
   const h = location.hash || '#/';
   const isProfile = h.startsWith('#/profile');
 
-  // Аватар
   av.hidden = false;
   av.textContent = initials(me.full_name);
   av.title = me.full_name || 'Профиль';
   av.classList.toggle('active', isProfile);
 
-  // Вкладки: 4 штуки — Задачи, Отчёты (только менеджер), События, Профиль
-  // для исполнителя: Задачи, События, Профиль + пустая ячейка (или «Новая задача»)
   const listActive = !h || h === '#/' || h.startsWith('#/task');
 
-  const tab = (href, ico, lbl, active, extra='') => `
+  const tab = (href, ico, lbl, active) => `
     <a class="tab ${active ? 'active' : ''}" href="${href}">
-      <span class="ico">${ico}</span><span>${lbl}</span>${extra}
+      <span class="ico">${ico}</span><span>${lbl}</span>
     </a>`;
 
   tabs.innerHTML = `<div class="tabs">
@@ -666,50 +663,9 @@ async function refreshBell() {
   } catch (e) { console.warn(e); }
 }
 setInterval(refreshBell, 60000);
-// ---------- Роутинг ----------
-const routes = [
-  [/^#\/new$/,            () => renderNew()],
-  [/^#\/task\/(\d+)$/,    m  => renderTask(+m[1])],
-  [/^#\/notifications$/,  () => renderNotifications()],
-  [/^#\/profile$/,        () => renderProfile()],
-  [/^#\/team$/,           () => renderTeam()],
-  [/^#\/setup$/,          () => renderSetup()],
-  [/^#\/reports$/,        () => renderReports()],
-  [/.*/,                  () => renderList()],
-];
-
-async function route() {
-  if (!me) return renderLogin();
-  const h = location.hash || '#/';
-  for (const [re, fn] of routes) {
-    const m = h.match(re);
-    if (!m) continue;
-    loading();
-    try { await fn(m); }
-    catch (e) {
-      app.innerHTML = `<div class="panel">
-        <b>Не удалось загрузить</b><br><span class="muted">${esc(e.message)}</span>
-        <p><button class="btn primary" onclick="location.reload()">↻ Повторить</button>
-        <a href="#/" class="btn">К списку</a></p></div>`;
-    }
-    return;
-  }
-}
-window.onhashchange = route;
-window.addEventListener('hashchange', renderNav);
-
-// Вернулись в приложение после перерыва — обновить список
-let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { hiddenAt = Date.now(); return; }
-  refreshBell();
-  const onList = !location.hash || location.hash === '#/';
-  if (me && onList && hiddenAt && Date.now() - hiddenAt > 5 * 60000) route();
-});
-
 // ---------- Вход ----------
 function renderLogin() {
-  $('#nav').innerHTML = '';
+ renderNav();   // сам скроет аватар и очистит табы, т.к. me = null
   app.innerHTML = `
     <form id="f" class="panel narrow">
       <h2>Вход</h2>
@@ -754,7 +710,7 @@ async function onSession(session) {
     if (cached && error) return;   // временно нет связи — работаем по сохранённому профилю
     localStorage.removeItem('me_' + uid);
     me = null;
-    $('#nav').innerHTML = '';
+  
     app.innerHTML = `<div class="panel narrow">
       <b>Не удалось загрузить профиль</b><br>
       <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код выполнен полностью.')}</span>
