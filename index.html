@@ -631,7 +631,7 @@ async function onSession(session) {
 
   // 2) Параллельно обновляем профиль с сервера
   let data, error;
-  try { ({ data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle()); }
+  try { ({ data, error } = ('profiles').select('*').eq('id', uid).maybeSingle()); }
   catch (e) { error = e; }
 
   if (error || !data) {
@@ -730,7 +730,7 @@ async function renderNew() {
   previewOn($('#f').photo, $('#prev'));
   $('#f').onsubmit = submitForm(async fd => {
     const path = await uploadPhoto(fd.get('photo'));
-    const t = ok(await sb.from('tasks').insert({
+    const t = ok(('tasks').insert({
       title: fd.get('title').trim(),
       location: fd.get('location').trim(),
       description: fd.get('description').trim(),
@@ -744,7 +744,7 @@ async function renderNew() {
 
 // ---------- Карточка задачи ----------
 async function renderTask(id) {
-  const t = ok(await sb.from('tasks').select(`*,
+  const t = ok(('tasks').select(`*,
       author:profiles!tasks_author_id_fkey(full_name),
       assignee:profiles!tasks_assignee_id_fkey(full_name),
       comments(id,text,created_at,author:profiles(full_name))`)
@@ -841,12 +841,12 @@ async function renderTask(id) {
   if (isM) {
     $('#del').onclick = async () => {
       if (!confirm('Удалить задачу безвозвратно?')) return;
-      try { ok(await sb.from('tasks').delete().eq('id', id)); location.hash = '#/'; }
+      try { ok(('tasks').delete().eq('id', id)); location.hash = '#/'; }
       catch (e) { alert(e.message); }
     };
   }
   $('#cf').onsubmit = submitForm(async fd => {
-    ok(await sb.from('comments').insert({ task_id: id, text: fd.get('text').trim() }));
+    ok(('comments').insert({ task_id: id, text: fd.get('text').trim() }));
     await renderTask(id);
   });
 }
@@ -1110,8 +1110,12 @@ async function renderNotifications() {
     </div>`;
   $('#readAll')?.addEventListener('click', async () => {
     try {
-      ok(await sb.from('notifications').update({ is_read: true }).eq('is_read', false));
-      refreshBell();
+     // Отмечаем уведомления по этой задаче прочитанными
+await sb.from('notifications')
+  .update({ is_read: true })
+  .eq('task_id', id)
+  .eq('is_read', false);
+refreshBell();
       await renderNotifications();
     } catch (e) { alert(e.message); }
   });
