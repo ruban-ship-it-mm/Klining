@@ -851,7 +851,7 @@ async function renderNew() {
   previewOn($('#f').photo, $('#prev'));
   $('#f').onsubmit = submitForm(async fd => {
     const path = await uploadPhoto(fd.get('photo'));
-    const t = ok(('tasks').insert({
+    const t = ok(await sb.from('tasks').insert({
       title: fd.get('title').trim(),
       location: fd.get('location').trim(),
       description: fd.get('description').trim(),
@@ -862,7 +862,6 @@ async function renderNew() {
     location.hash = '#/task/' + t.id;
   });
 }
-
 // ---------- Карточка задачи ----------
 async function renderTask(id) {
   const t = ok(('tasks').select(`*,
@@ -962,12 +961,12 @@ async function renderTask(id) {
   if (isM) {
     $('#del').onclick = async () => {
       if (!confirm('Удалить задачу безвозвратно?')) return;
-      try { ok(('tasks').delete().eq('id', id)); location.hash = '#/'; }
+      try { ok((sb.from('tasks').delete().eq('id', id)); location.hash = '#/'; }
       catch (e) { alert(e.message); }
     };
   }
   $('#cf').onsubmit = submitForm(async fd => {
-    ok(('comments').insert({ task_id: id, text: fd.get('text').trim() }));
+    ok((sb.from('comments').insert({ task_id: id, text: fd.get('text').trim() }));
     await renderTask(id);
   });
 }
