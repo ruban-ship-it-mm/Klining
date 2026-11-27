@@ -109,12 +109,12 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   .card:active{transform:scale(.98)}
   .card.late{box-shadow:0 0 0 2px var(--red),var(--shadow)}
   .card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--surface-2)}
-  .card-body{padding:12px 14px 14px;display:grid;gap:2px}
-  .card-body b{font-size:15px;line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;
+  .card-{padding:12px 14px 14px;display:grid;gap:2px}
+  .card- b{font-size:15px;line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;
         -webkit-box-orient:vertical;overflow:hidden}
-  .card-body .muted{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card- .muted{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card .badge{position:absolute;top:10px;left:10px;background:var(--surface);box-shadow:0 2px 10px rgba(0,0,0,.18)}
-  @media (max-width:520px){ .card-body{padding:10px 11px 12px} .card-body b{font-size:14px} }
+  @media (max-width:520px){ .card-{padding:10px 11px 12px} .card- b{font-size:14px} }
 
   /* ---------- Статусы ---------- */
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;
@@ -200,7 +200,7 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   .team tr:first-child td{border-top:0}
   .team td input,.team td select{width:100%}
   @media (max-width:640px){
-    .team,.team tbody,.team tr,.team td{display:block}
+    .team,.team t,.team tr,.team td{display:block}
     .team tr{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
     .team tr:first-child{border-top:0}
     .team td{padding:0;border:0}
@@ -238,7 +238,7 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
 
   @media print{
     @page{size:A4;margin:12mm}
-    body{background:#fff!important}
+    {background:#fff!important}
     header,nav,.no-print{display:none!important}
     main{padding:0!important;max-width:none}
     #app > *{animation:none!important}
@@ -267,6 +267,75 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
       .ph-gone{aspect-ratio:4/3;width:100%;display:grid;place-items:center;text-align:center;padding:8px;
            background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:600;border-radius:14px}
   .card .ph-gone{border-radius:0}
+      /* ================= НАВИГАЦИЯ v2 ================= */
+header{
+  display:grid;grid-template-columns:1fr auto;align-items:center;
+  gap:12px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));
+}
+.logo{font-size:17px}
+
+/* Верхние иконки (десктоп + планшет) */
+#nav{display:flex;align-items:center;gap:6px}
+#nav .nav-btn{
+  position:relative;display:inline-flex;align-items:center;gap:8px;
+  height:42px;padding:0 14px;border-radius:12px;
+  background:transparent;color:var(--text);font-weight:600;font-size:14px;
+  transition:background .15s,transform .1s;
+}
+#nav .nav-btn:hover{background:var(--surface-2)}
+#nav .nav-btn:active{transform:scale(.96)}
+#nav .nav-btn.active{background:var(--accent-soft);color:var(--accent)}
+#nav .nav-btn .ico{font-size:19px;line-height:1}
+#nav .nav-btn .lbl{white-space:nowrap}
+
+/* Счётчик непрочитанных */
+#nav .dot{
+  position:absolute;top:6px;right:6px;min-width:18px;height:18px;padding:0 5px;
+  border-radius:999px;background:var(--red);color:#fff;font-size:11px;font-weight:800;
+  display:grid;place-items:center;box-shadow:0 2px 6px rgba(225,29,72,.4);
+}
+
+/* Профиль-аватар */
+#nav .avatar{
+  width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;font-weight:800;font-size:15px;
+  box-shadow:0 4px 12px rgba(99,70,229,.35);
+}
+#nav .profile-btn{padding:2px}
+
+/* Нижняя панель (мобильные) */
+#tabbar{
+  display:none;position:fixed;left:0;right:0;bottom:0;z-index:30;
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  background:var(--surface);border-top:1px solid var(--line);
+}
+#tabbar .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+#tabbar .tab{
+  position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:8px 4px;border-radius:12px;color:var(--muted);font-size:11px;font-weight:600;
+  transition:color .15s,background .15s;
+}
+#tabbar .tab .ico{font-size:22px;line-height:1}
+#tabbar .tab.active{color:var(--accent);background:var(--accent-soft)}
+#tabbar .tab .dot{
+  position:absolute;top:4px;right:calc(50% - 18px);
+  min-width:16px;height:16px;padding:0 4px;border-radius:999px;
+  background:var(--red);color:#fff;font-size:10px;font-weight:800;
+  display:grid;place-items:center;
+}
+
+/* Показываем tabbar на телефонах, скрываем верхние подписи */
+@media (max-width:640px){
+  #nav .nav-btn .lbl{display:none}
+  #nav .nav-btn{padding:0 10px}
+  #tabbar{display:block}
+  main{padding-bottom:96px}
+  /* плавающая кнопка «Новая задача» поднимается над tabbar */
+  .toolbar .btn.primary{bottom:calc(88px + env(safe-area-inset-bottom))}
+}
+@media (max-width:380px){
+  #nav .nav-btn[data-min="md"]{display:none}
+}
 </style>
 </head>
 <body>
@@ -274,6 +343,7 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   <a href="#/" class="logo"><span class="logo-icon">✓</span><span>Task <em>Manager</em></span></a>
   <nav id="nav"></nav>
 </header>
+<nav id="tabbar"></nav>
 <main id="app"><p class="loading">Загрузка…</p></main>
 
 <script>
@@ -537,24 +607,73 @@ async function showPushBanner() {
 }
 
 // ---------- Шапка ----------
+function initials(name){
+  const p = String(name||'').trim().split(/\s+/);
+  return ((p[0]?.[0]||'') + (p[1]?.[0]||'')).toUpperCase() || '👤';
+}
+
 function renderNav() {
-  $('#nav').innerHTML = me ? `
-    <a id="bell" href="#/notifications">🔔</a>
-    ${me.role === 'manager' ? '<a href="#/reports" title="Отчёты">📊</a><a href="#/team" title="Сотрудники">👥</a>' : ''}
-    <a href="#/profile">${esc(me.full_name || 'Профиль')}</a>` : '';
+  const nav = $('#nav'), tabs = $('#tabbar');
+  if (!me) { nav.innerHTML = ''; tabs.innerHTML = ''; return; }
+
+  const isM = me.role === 'manager';
+  const h = location.hash || '#/';
+
+  // Верхнее меню: иконки с подписями
+  nav.innerHTML = `
+    <a class="nav-btn ${h.startsWith('#/notifications') ? 'active' : ''}" href="#/notifications" title="Уведомления">
+      <span class="ico">🔔</span><span class="lbl">Уведомления</span>
+      <span class="dot" id="bellDot" hidden>0</span>
+    </a>
+    ${isM ? `
+      <a class="nav-btn ${h.startsWith('#/reports') ? 'active' : ''}" href="#/reports" title="Отчёты" data-min="md">
+        <span class="ico">📊</span><span class="lbl">Отчёты</span>
+      </a>
+      <a class="nav-btn ${h.startsWith('#/team') ? 'active' : ''}" href="#/team" title="Сотрудники" data-min="md">
+        <span class="ico">👥</span><span class="lbl">Сотрудники</span>
+      </a>` : ''}
+    <a class="nav-btn profile-btn ${h.startsWith('#/profile') ? 'active' : ''}" href="#/profile" title="${esc(me.full_name)}">
+      <span class="avatar">${esc(initials(me.full_name))}</span>
+    </a>`;
+
+  // Нижняя панель
+  const tab = (href, ico, lbl, active) => `
+    <a class="tab ${active ? 'active' : ''}" href="${href}">
+      <span class="ico">${ico}</span><span>${lbl}</span>
+    </a>`;
+
+  const listActive = !h || h === '#/' || h.startsWith('#/task');
+  tabs.innerHTML = `<div class="tabs">
+    ${tab('#/', '🏠', 'Задачи', listActive)}
+    ${isM ? tab('#/reports', '📊', 'Отчёты', h.startsWith('#/reports')) : ''}
+    ${isM ? tab('#/team', '👥', 'Команда', h.startsWith('#/team')) : ''}
+    <a class="tab ${h.startsWith('#/notifications') ? 'active' : ''}" href="#/notifications">
+      <span class="ico">🔔</span><span>События</span>
+      <span class="dot" id="bellDot2" hidden>0</span>
+    </a>
+    <a class="tab ${h.startsWith('#/profile') ? 'active' : ''}" href="#/profile">
+      <span class="ico">👤</span><span>Профиль</span>
+    </a>
+  </div>`;
+
   refreshBell();
 }
 
 async function refreshBell() {
-  if (!me || !$('#bell')) return;
+  if (!me) return;
   try {
     const { count } = await sb.from('notifications')
       .select('id', { count: 'exact', head: true }).eq('is_read', false);
-    if ($('#bell')) $('#bell').textContent = count ? `🔔 ${count}` : '🔔';
+    const n = count || 0;
+    ['#bellDot', '#bellDot2'].forEach(sel => {
+      const el = $(sel);
+      if (!el) return;
+      el.hidden = !n;
+      el.textContent = n > 99 ? '99+' : String(n);
+    });
   } catch (e) { console.warn(e); }
 }
 setInterval(refreshBell, 60000);
-
 // ---------- Роутинг ----------
 const routes = [
   [/^#\/new$/,            () => renderNew()],
@@ -585,6 +704,7 @@ async function route() {
   }
 }
 window.onhashchange = route;
+window.addEventListener('hashchange', renderNav); // перекрашивать табы
 
 // Вернулись в приложение после перерыва — обновить список
 let hiddenAt = 0;
