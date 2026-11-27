@@ -659,7 +659,7 @@ async function onSession(session) {
 // ---------- Список задач ----------
 async function renderList() {
   const isM = me.role === 'manager';
-  let q = sb.from('tasks')
+  let q = sb.from('')
     .select('id,title,status,photo_before,due_date,location,assignee:profiles!tasks_assignee_id_fkey(full_name)')
     .order('id', { ascending: false }).limit(40);
   if (filter.status === 'active') q = q.in('status', ['open', 'review']);
@@ -958,8 +958,8 @@ async function renderReports() {
     } catch (e) { $('#repInfo').textContent = ''; alert(e.message); }
     finally { btns.forEach(b => b.disabled = false); btn.textContent = old; }
   };
-  $('#pdf').onclick = run($('#pdf'), tasks => printReport(tasks, { ...repFilter }, people));
-  $('#xls').onclick = run($('#xls'), tasks => exportExcel(tasks, { ...repFilter }, people));
+ $('#pdf').onclick = run($('#pdf'), tasks => printReport(tasks, { ...repFilter }, people));
+ $('#xls').onclick = run($('#xls'), tasks => exportExcel(tasks, { ...repFilter }, people));
 }
 
 async function printReport(tasks, f, people) {
