@@ -385,11 +385,6 @@ if (!(window.supabase && window.supabase.createClient)) {
 
 const createClient = window.supabase.createClient;
 
-if (!supaOk) {
-  window.appStarted = true;
-  window.showFatal('Не загрузилась библиотека Supabase. Проверьте интернет и нажмите «Обновить».');
-  throw new Error('no supabase');
-}
 // ======================= НАСТРОЙКИ =======================
 const SUPABASE_URL = 'https://ahvreobecreuytpfxmeb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_FbutypTiax8lbAOWATVIFg_edKn1qj3';
