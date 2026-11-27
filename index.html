@@ -1110,12 +1110,7 @@ async function renderNotifications() {
     </div>`;
   $('#readAll')?.addEventListener('click', async () => {
     try {
-     // Отмечаем уведомления по этой задаче прочитанными
-await sb.from('notifications')
-  .update({ is_read: true })
-  .eq('task_id', id)
-  .eq('is_read', false);
-refreshBell();
+     // Отмечаем уведомления по этой задаче прочитанными await sb.from('notifications') .update({ is_read: true }) .eq('task_id', id) .eq('is_read', false); refreshBell();
       await renderNotifications();
     } catch (e) { alert(e.message); }
   });
