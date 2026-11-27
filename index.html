@@ -264,6 +264,9 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   html.lite .preview,html.lite .logo-icon{box-shadow:none!important}
   html.lite .card,html.lite .panel{border:1px solid var(--line)}
   html.lite header,html.lite figcaption{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+      .ph-gone{aspect-ratio:4/3;width:100%;display:grid;place-items:center;text-align:center;padding:8px;
+           background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:600;border-radius:14px}
+  .card .ph-gone{border-radius:0}
 </style>
 </head>
 <body>
@@ -444,7 +447,20 @@ async function signedMany(paths) {
   for (let i = 0; i < paths.length; i += 100) Object.assign(out, await signed(paths.slice(i, i + 100)));
   return out;
 }
-
+// Фото удалено или не загрузилось — показываем заглушку вместо «битой» картинки
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (img.tagName !== 'IMG' || img.dataset.gone) return;
+  img.dataset.gone = '1';
+  if (typeof urlCache !== 'undefined' && img.getAttribute('src')) {
+    for (const k in urlCache) if (urlCache[k].url === img.src) delete urlCache[k];
+    saveUrlCache();
+  }
+  const ph = document.createElement('div');
+  ph.className = 'ph-gone';
+  ph.textContent = '📷 Фото недоступно';
+  img.replaceWith(ph);
+}, true);
 const getPeople = async () => ok(await sb.from('profiles').select('*').order('full_name'));
 
 // ================= PUSH-УВЕДОМЛЕНИЯ =================
@@ -765,7 +781,7 @@ async function renderTask(id) {
         <span class="muted">Поставил: ${esc(t.author?.full_name)} · ${fmt(t.created_at)}
         ${t.closed_at ? ` · Принята: ${fmt(t.closed_at)}` : ''}</span>
       </p>
-      ${t.description ? `<p>${nl2br(t.description)}</p>` : ''}
+      ${t.photos_purged_at ? `<p class="muted">🗂 Фото удалены автоматически ${fmt(t.photos_purged_at)} (хранятся 3 месяца после закрытия).</p>` : ''}
 
       ${canSubmit ? `
       <form id="submit" class="action">
