@@ -6,6 +6,7 @@ self.addEventListener('push', e => {
   try { d = e.data.json(); } catch { d = { body: e.data ? e.data.text() : '' }; }
   e.waitUntil(self.registration.showNotification('Task Manager', {
     body: d.body || '',
+    icon: 'icon-192.png',
     data: { url: d.url || '#/' },
   }));
 });
