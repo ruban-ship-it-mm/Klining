@@ -5,14 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#151821" media="(prefers-color-scheme: dark)">
+<title>Task Manager</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Task Manager">
-<title>Task Manager</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<!-- Заранее открываем соединения с серверами -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://ahvreobecreuytpfxmeb.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@600;700&display=swap">
+<!-- Библиотека Supabase одним файлом -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Шрифты грузятся в фоне и не задерживают показ страницы -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@600;700&display=swap">
 <style>
   :root{
     --bg:#f4f5f9; --surface:#fff; --surface-2:#f1f3f8; --text:#0f172a; --muted:#64748b; --line:#e6e8f0;
@@ -244,6 +252,11 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   .muted{color:var(--muted);font-size:13px}
   .red{color:var(--red);font-weight:700}
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+  /* ---------- Скорость (особенно iPhone) ---------- */
+  header{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}
+  figcaption{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(0,0,0,.65)}
+  .card{content-visibility:auto;contain-intrinsic-size:auto 280px}
+  @media (hover:none){ .card:hover{transform:none;box-shadow:var(--shadow)} }
 </style>
 </head>
 <body>
@@ -273,7 +286,12 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
 </script>
 
 <script type="module">
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+if (!window.supabase?.createClient) {
+  window.appStarted = true;
+  window.showFatal('Не загрузилась библиотека Supabase (cdn.jsdelivr.net). Проверьте интернет и нажмите «Обновить».');
+  throw new Error('no supabase');
+}
+const { createClient } = window.supabase;
 
 // ======================= НАСТРОЙКИ =======================
 const SUPABASE_URL = 'https://ahvreobecreuytpfxmeb.supabase.co';
@@ -375,11 +393,37 @@ async function uploadPhoto(file) {
   return path;
 }
 
+// Ссылки на фото запоминаются на неделю — фото скачиваются один раз и дальше берутся из памяти телефона
+const URL_TTL = 7 * 86400;
+const urlCache = (() => { try { return JSON.parse(localStorage.photoUrls || '{}'); } catch { return {}; } })();
+function saveUrlCache() {
+  const now = Date.now();
+  const list = Object.entries(urlCache).filter(([, v]) => v.exp > now)
+    .sort((a, b) => b[1].exp - a[1].exp).slice(0, 1500);
+  try { localStorage.photoUrls = JSON.stringify(Object.fromEntries(list)); } catch {}
+}
 async function signed(paths) {
   paths = [...new Set(paths.filter(Boolean))];
-  if (!paths.length) return {};
-  const data = ok(await sb.storage.from('photos').createSignedUrls(paths, 3600));
-  return Object.fromEntries(data.map(d => [d.path, d.signedUrl]));
+  const out = {}, need = [];
+  const minLife = Date.now() + 86400e3;          // ссылка должна жить ещё хотя бы сутки
+  for (const p of paths) {
+    const c = urlCache[p];
+    if (c && c.exp > minLife) { if (c.url) out[p] = c.url; }
+    else need.push(p);
+  }
+  if (need.length) {
+    const { data, error } = await sb.storage.from('photos').createSignedUrls(need, URL_TTL);
+    if (error) throw new Error(error.message);
+    const exp = Date.now() + (URL_TTL - 600) * 1000;
+    (data || []).forEach((d, i) => {
+      const p = d.path || need[i];
+      const url = d.signedUrl && !d.error ? d.signedUrl : '';   // '' — файла нет (старая задача без миниатюры)
+      if (url) out[p] = url;
+      urlCache[p] = { url, exp };
+    });
+    saveUrlCache();
+  }
+  return out;
 }
 
 async function signedMany(paths) {
