@@ -667,7 +667,7 @@ async function renderList() {
   if (filter.assignee) q = q.eq('assignee_id', filter.assignee);
 
   const [tasks, people] = await Promise.all([q.then(ok), isM ? getPeople() : []]);
-  const urls = await signed(tasks.flatMap(t => [t.photo_before, t.photo_after])); app.innerHTML = ` <div class="toolbar"> ... </div> <div class="grid"> ${tasks.map(t => ` <a class="card ${overdue(t) ? 'late' : ''}" href="#/task/${t.id}">
+  const urls = await signed(tasks.flatMap(t => [t.photo_before, t.photo_after]));
 
   app.innerHTML = `
     <div class="toolbar">
@@ -684,7 +684,7 @@ async function renderList() {
     <div class="grid">
       ${tasks.map(t => `
         <a class="card ${overdue(t) ? 'late' : ''}" href="#/task/${t.id}">
-          <img src="${urls[thumbOf(t.photo_before)] || urls[t.photo_before] || ''}" loading="lazy" decoding="async" alt="">
+          <img src="${urls[t.photo_before] || ''}" loading="lazy" decoding="async" alt="">
           ${badge(t.status)}
           <div class="card-body">
             <b>${esc(t.title)}</b>
@@ -703,7 +703,6 @@ async function renderList() {
     $('#fWho').onchange = e => { filter.assignee = e.target.value; renderList().catch(err => alert(err.message)); };
   }
 }
-
 // ---------- Новая задача ----------
 async function renderNew() {
   if (me.role !== 'manager') { location.hash = '#/'; return; }
