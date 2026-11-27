@@ -375,11 +375,24 @@ main{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
 </script>
 
 <script type="module">
-if (!window.supabase?.createClient) {
+// ---- Ожидание загрузки Supabase ----
+async function waitSupabase(timeout = 15000) {
+  const t0 = Date.now();
+  while (!(window.supabase && window.supabase.createClient)) {
+    if (Date.now() - t0 > timeout) return false;
+    await new Promise(function (r) { setTimeout(r, 100); });
+  }
+  return true;
+}
+
+const supaOk = await waitSupabase();
+
+if (!supaOk) {
   window.appStarted = true;
-  window.showFatal('Не загрузилась библиотека Supabase (cdn.jsdelivr.net). Проверьте интернет и нажмите «Обновить».');
+  window.showFatal('Не загрузилась библиотека Supabase. Проверьте интернет и нажмите «Обновить».');
   throw new Error('no supabase');
 }
+
 const { createClient } = window.supabase;
 
 // ======================= НАСТРОЙКИ =======================
