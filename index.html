@@ -877,7 +877,7 @@ async function renderNew() {
 }
 // ---------- Карточка задачи ----------
 async function renderTask(id) {
-  const t = ok(('tasks').select(`*,
+  const t = ok('tasks').select(`*,
       author:profiles!tasks_author_id_fkey(full_name),
       assignee:profiles!tasks_assignee_id_fkey(full_name),
       comments(id,text,created_at,author:profiles(full_name))`)
@@ -971,15 +971,17 @@ async function renderTask(id) {
       await act(async () => ok(await sb.rpc('return_task', { p_task: id, p_reason: reason })))();
     };
   }
-  if (isM) {
+    if (isM) {
     $('#del').onclick = async () => {
       if (!confirm('Удалить задачу безвозвратно?')) return;
-      try { ok((sb.from('tasks').delete().eq('id', id)); location.hash = '#/'; }
-      catch (e) { alert(e.message); }
+      try {
+        ok(await sb.from('tasks').delete().eq('id', id));
+        location.hash = '#/';
+      } catch (e) { alert(e.message); }
     };
   }
   $('#cf').onsubmit = submitForm(async fd => {
-    ok((sb.from('comments').insert({ task_id: id, text: fd.get('text').trim() }));
+    ok(await sb.from('comments').insert({ task_id: id, text: fd.get('text').trim() }));
     await renderTask(id);
   });
 }
