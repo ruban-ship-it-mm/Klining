@@ -269,73 +269,45 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   .card .ph-gone{border-radius:0}
       /* ================= НАВИГАЦИЯ v2 ================= */
 header{
-  display:grid;grid-template-columns:1fr auto;align-items:center;
-  gap:12px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));
+  display:flex;justify-content:space-between;align-items:center;
+  gap:10px;padding:8px 12px;
+  padding-top:calc(8px + env(safe-area-inset-top));
+  padding-left:calc(12px + env(safe-area-inset-left));
+  padding-right:calc(12px + env(safe-area-inset-right));
 }
-.logo{font-size:17px}
+.logo{font-size:16px;flex-shrink:0;min-width:0}
+.logo > span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* Верхние иконки (десктоп + планшет) */
-#nav{display:flex;align-items:center;gap:6px}
-#nav .nav-btn{
-  position:relative;display:inline-flex;align-items:center;gap:8px;
-  height:42px;padding:0 14px;border-radius:12px;
-  background:transparent;color:var(--text);font-weight:600;font-size:14px;
-  transition:background .15s,transform .1s;
-}
+#nav{display:flex;align-items:center;gap:4px;min-width:0;flex-shrink:1}
+#nav .nav-btn{position:relative}
 #nav .nav-btn:hover{background:var(--surface-2)}
 #nav .nav-btn:active{transform:scale(.96)}
 #nav .nav-btn.active{background:var(--accent-soft);color:var(--accent)}
-#nav .nav-btn .ico{font-size:19px;line-height:1}
+#nav .nav-btn .ico{font-size:18px;line-height:1}
 #nav .nav-btn .lbl{white-space:nowrap}
-
-/* Счётчик непрочитанных */
+#nav .profile-btn{padding:1px}
+#nav .avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:grid;place-items:center;
+  background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;
+  font-weight:800;font-size:14px;
+  box-shadow:0 4px 12px rgba(99,70,229,.35);
+}
 #nav .dot{
-  position:absolute;top:6px;right:6px;min-width:18px;height:18px;padding:0 5px;
-  border-radius:999px;background:var(--red);color:#fff;font-size:11px;font-weight:800;
+  position:absolute;top:4px;right:4px;min-width:17px;height:17px;padding:0 4px;
+  border-radius:999px;background:var(--red);color:#fff;font-size:10px;font-weight:800;
   display:grid;place-items:center;box-shadow:0 2px 6px rgba(225,29,72,.4);
 }
 
-/* Профиль-аватар */
-#nav .avatar{
-  width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
-  background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;font-weight:800;font-size:15px;
-  box-shadow:0 4px 12px rgba(99,70,229,.35);
-}
-#nav .profile-btn{padding:2px}
-
-/* Нижняя панель (мобильные) */
-#tabbar{
-  display:none;position:fixed;left:0;right:0;bottom:0;z-index:30;
-  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
-  background:var(--surface);border-top:1px solid var(--line);
-}
-#tabbar .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
-#tabbar .tab{
-  position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:8px 4px;border-radius:12px;color:var(--muted);font-size:11px;font-weight:600;
-  transition:color .15s,background .15s;
-}
-#tabbar .tab .ico{font-size:22px;line-height:1}
-#tabbar .tab.active{color:var(--accent);background:var(--accent-soft)}
-#tabbar .tab .dot{
-  position:absolute;top:4px;right:calc(50% - 18px);
-  min-width:16px;height:16px;padding:0 4px;border-radius:999px;
-  background:var(--red);color:#fff;font-size:10px;font-weight:800;
-  display:grid;place-items:center;
-}
-
-/* Показываем tabbar на телефонах, скрываем верхние подписи */
+/* На телефонах верхние подписи скрываем — остаются только иконки + аватар */
 @media (max-width:640px){
-  #nav .nav-btn .lbl{display:none}
-  #nav .nav-btn{padding:0 10px}
   #tabbar{display:block}
-  main{padding-bottom:96px}
-  /* плавающая кнопка «Новая задача» поднимается над tabbar */
-  .toolbar .btn.primary{bottom:calc(88px + env(safe-area-inset-bottom))}
-}
-@media (max-width:380px){
-  #nav .nav-btn[data-min="md"]{display:none}
-}
+  main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .toolbar .btn.primary{
+    position:fixed;right:16px;
+    bottom:calc(96px + env(safe-area-inset-bottom));
+    z-index:25;
+  }
 </style>
 </head>
 <body>
