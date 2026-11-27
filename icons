@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Иконки Task Manager</title>
+<style>
+  body{font:16px system-ui,sans-serif;padding:24px;max-width:600px;margin:auto}
+  img{width:140px;border-radius:32px;box-shadow:0 10px 30px #0003;display:block;margin:16px 0}
+  button{font:inherit;font-weight:600;padding:12px 18px;margin:6px 6px 6px 0;border:0;border-radius:12px;background:#4f46e5;color:#fff;cursor:pointer}
+</style></head><body>
+<h2>Иконки Task Manager</h2>
+<img id="pv" alt="">
+<p>Нажмите каждую из трёх кнопок — скачаются 3 файла. Потом загрузите их в репозиторий на GitHub.</p>
+<button data-n="icon-512.png" data-s="512">⬇ icon-512.png</button>
+<button data-n="icon-192.png" data-s="192">⬇ icon-192.png</button>
+<button data-n="apple-touch-icon.png" data-s="180">⬇ apple-touch-icon.png</button>
+<script>
+function draw(size) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const x = c.getContext('2d'), s = size / 512;
+  const g = x.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, '#4f46e5'); g.addColorStop(1, '#a855f7');
+  x.fillStyle = g; x.fillRect(0, 0, size, size);
+  const r = x.createRadialGradient(140*s, 110*s, 0, 140*s, 110*s, 340*s);
+  r.addColorStop(0, 'rgba(255,255,255,.28)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = r; x.fillRect(0, 0, size, size);
+  x.shadowColor = 'rgba(30,20,90,.35)'; x.shadowBlur = 24*s; x.shadowOffsetY = 10*s;
+  x.strokeStyle = '#fff'; x.lineWidth = 58*s; x.lineCap = 'round'; x.lineJoin = 'round';
+  x.beginPath(); x.moveTo(148*s, 270*s); x.lineTo(222*s, 344*s); x.lineTo(368*s, 178*s); x.stroke();
+  return c;
+}
+document.getElementById('pv').src = draw(512).toDataURL();
+document.querySelectorAll('button').forEach(b => b.onclick = () =>
+  draw(+b.dataset.s).toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = b.dataset.n; a.click();
+  }, 'image/png'));
+</script>
+</body></html>
