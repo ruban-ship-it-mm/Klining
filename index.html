@@ -257,6 +257,13 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
   figcaption{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(0,0,0,.65)}
   .card{content-visibility:auto;contain-intrinsic-size:auto 280px}
   @media (hover:none){ .card:hover{transform:none;box-shadow:var(--shadow)} }
+      /* ---------- Лёгкий режим ---------- */
+  html.lite #app > *{animation:none}
+  html.lite *{transition:none!important}
+  html.lite .card,html.lite .panel,html.lite .btn,html.lite nav a,html.lite .toolbar select,
+  html.lite .preview,html.lite .logo-icon{box-shadow:none!important}
+  html.lite .card,html.lite .panel{border:1px solid var(--line)}
+  html.lite header,html.lite figcaption{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 </style>
 </head>
 <body>
@@ -267,6 +274,11 @@ body{margin:0;font:15px/1.5 "Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI
 <main id="app"><p class="loading">Загрузка…</p></main>
 
 <script>
+      // Лёгкий режим для слабых Android: без теней и анимаций
+  (function () {
+    var mem = navigator.deviceMemory || 8;
+    if (/android/i.test(navigator.userAgent) && mem <= 4) document.documentElement.classList.add('lite');
+  })();
   // Показ ошибок запуска (с номером строки)
   function showFatal(msg) {
     document.getElementById('app').innerHTML =
