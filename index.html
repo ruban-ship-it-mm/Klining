@@ -877,7 +877,7 @@ async function renderNew() {
 }
 // ---------- Карточка задачи ----------
 async function renderTask(id) {
-  const t = ok('tasks').select(`*,
+  const t = ok(await sb.from('tasks').select(`*,
       author:profiles!tasks_author_id_fkey(full_name),
       assignee:profiles!tasks_assignee_id_fkey(full_name),
       comments(id,text,created_at,author:profiles(full_name))`)
@@ -885,13 +885,19 @@ async function renderTask(id) {
   if (!t) throw new Error('Задача не найдена или нет доступа');
   t.comments.sort((a, b) => a.id - b.id);
 
+  // Подгружаем ссылки на фото «до» и «после»
   const urls = await signed([t.photo_before, t.photo_after]);
+
+  // Права
   const isM = me.role === 'manager';
   const canSubmit = t.status === 'open' && t.assignee_id === me.id;
   const canReview = t.status === 'review' && isM;
 
+  // Помечаем уведомления по задаче прочитанными (не ждём)
   sb.from('notifications').update({ is_read: true })
-    .eq('task_id', id).eq('is_read', false).then(() => refreshBell());
+    .eq('task_id', id).eq('is_read', false)
+    .then(() => refreshBell())
+    .catch(() => {});
 
   const photo = (p, caption) => `
     <figure>
@@ -971,7 +977,7 @@ async function renderTask(id) {
       await act(async () => ok(await sb.rpc('return_task', { p_task: id, p_reason: reason })))();
     };
   }
-    if (isM) {
+  if (isM) {
     $('#del').onclick = async () => {
       if (!confirm('Удалить задачу безвозвратно?')) return;
       try {
