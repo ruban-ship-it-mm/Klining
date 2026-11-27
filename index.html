@@ -667,7 +667,7 @@ async function renderList() {
   if (filter.assignee) q = q.eq('assignee_id', filter.assignee);
 
   const [tasks, people] = await Promise.all([q.then(ok), isM ? getPeople() : []]);
-  const urls = await signed(tasks.flatMap(t => [thumbOf(t.photo_before), t.photo_before]));
+  const urls = await signed(tasks.flatMap(t => [t.photo_before, t.photo_after])); app.innerHTML = ` <div class="toolbar"> ... </div> <div class="grid"> ${tasks.map(t => ` <a class="card ${overdue(t) ? 'late' : ''}" href="#/task/${t.id}">
 
   app.innerHTML = `
     <div class="toolbar">
