@@ -377,30 +377,24 @@ main{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
 <script type="module">
 // ---- Ожидание загрузки Supabase ----
 // ---- Ожидание загрузки Supabase ----
-async function waitSupabase(timeout = 15000) {
-  const t0 = Date.now();
-  while (!(window.supabase && window.supabase.createClient)) {
-    if (Date.now() - t0 > timeout) return false;
-    await new Promise(function (r) { setTimeout(r, 100); });
-  }
-  return true;
+if (!(window.supabase && window.supabase.createClient)) {
+  window.appStarted = true;
+  window.showFatal('Не загрузилась библиотека Supabase. Проверьте интернет и нажмите Обновить.');
+  throw new Error('no supabase');
 }
 
-const supaOk = await waitSupabase();
+const createClient = window.supabase.createClient;
 
 if (!supaOk) {
   window.appStarted = true;
   window.showFatal('Не загрузилась библиотека Supabase. Проверьте интернет и нажмите «Обновить».');
   throw new Error('no supabase');
 }
-
-const { createClient } = window.supabase;
-
 // ======================= НАСТРОЙКИ =======================
 const SUPABASE_URL = 'https://ahvreobecreuytpfxmeb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_FbutypTiax8lbAOWATVIFg_edKn1qj3';
-const TG_BOT       = '';               // имя Telegram-бота без @ (можно оставить пустым)
-const LOGIN_DOMAIN = '@obhod.local';   // логин «ivan» = ivan@obhod.local
+const TG_BOT       = '';
+const LOGIN_DOMAIN = '@obhod.local';
 // =========================================================
 
 if (SUPABASE_KEY.startsWith('ВСТАВЬТЕ')) {
