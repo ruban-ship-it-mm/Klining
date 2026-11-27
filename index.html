@@ -606,6 +606,7 @@ async function showPushBanner() {
 }
 
 // ---------- Шапка ----------
+// ================= НАВИГАЦИЯ =================
 function initials(name){
   const p = String(name||'').trim().split(/\s+/);
   return ((p[0]?.[0]||'') + (p[1]?.[0]||'')).toUpperCase() || '👤';
@@ -631,7 +632,6 @@ function renderNav() {
   av.classList.toggle('active', isProfile);
 
   const listActive = !h || h === '#/' || h.startsWith('#/task');
-
   const tab = (href, ico, lbl, active) => `
     <a class="tab ${active ? 'active' : ''}" href="${href}">
       <span class="ico">${ico}</span><span>${lbl}</span>
@@ -663,9 +663,53 @@ async function refreshBell() {
   } catch (e) { console.warn(e); }
 }
 setInterval(refreshBell, 60000);
-// ---------- Вход ----------
+
+// ================= РОУТИНГ =================
+const routes = [
+  [/^#\/new$/,            () => renderNew()],
+  [/^#\/task\/(\d+)$/,    m  => renderTask(+m[1])],
+  [/^#\/notifications$/,  () => renderNotifications()],
+  [/^#\/profile$/,        () => renderProfile()],
+  [/^#\/team$/,           () => renderTeam()],
+  [/^#\/setup$/,          () => renderSetup()],
+  [/^#\/reports$/,        () => renderReports()],
+  [/.*/,                  () => renderList()],
+];
+
+async function route() {
+  if (!me) return renderLogin();
+  const h = location.hash || '#/';
+  for (const [re, fn] of routes) {
+    const m = h.match(re);
+    if (!m) continue;
+    loading();
+    try { await fn(m); }
+    catch (e) {
+      app.innerHTML = `<div class="panel">
+        <b>Не удалось загрузить</b><br><span class="muted">${esc(e.message)}</span>
+        <p><button class="btn primary" onclick="location.reload()">↻ Повторить</button>
+        <a href="#/" class="btn">К списку</a></p></div>`;
+    }
+    return;
+  }
+}
+window.onhashchange = route;
+window.addEventListener('hashchange', renderNav);
+
+// Вернулись в приложение после перерыва — обновить список
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  refreshBell();
+  const onList = !location.hash || location.hash === '#/';
+  if (me && onList && hiddenAt && Date.now() - hiddenAt > 5 * 60000) route();
+});
+
+// ================= ВХОД =================
 function renderLogin() {
- renderNav();   // сам скроет аватар и очистит табы, т.к. me = null
+  const av = $('#avatarLink'), tabs = $('#tabbar');
+  if (av) av.hidden = true;
+  if (tabs) tabs.innerHTML = '';
   app.innerHTML = `
     <form id="f" class="panel narrow">
       <h2>Вход</h2>
@@ -684,6 +728,7 @@ function renderLogin() {
   });
 }
 
+// ================= СЕССИЯ =================
 async function onSession(session) {
   const uid = session?.user?.id || null;
   if (started && uid === currentUid) return;
@@ -692,25 +737,27 @@ async function onSession(session) {
   me = null;
   if (!uid) { renderNav(); return route(); }
 
-  // 1) Сразу открываем приложение по сохранённому профилю, не дожидаясь сервера
+  // 1) Сразу открываем приложение по сохранённому профилю
   let cached = null;
   try { cached = JSON.parse(localStorage['me_' + uid] || 'null'); } catch {}
- if (cached) {
-  me = cached;
-  try { renderNav(); } catch (e) { console.warn('renderNav:', e); }
-  route();
-}
+  if (cached) {
+    me = cached;
+    try { renderNav(); } catch (e) { console.warn('renderNav:', e); }
+    route();
+  }
 
   // 2) Параллельно обновляем профиль с сервера
   let data, error;
-  try { ({ data, error } = ('profiles').select('*').eq('id', uid).maybeSingle()); }
+  try { ({ data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle()); }
   catch (e) { error = e; }
 
   if (error || !data) {
-    if (cached && error) return;   // временно нет связи — работаем по сохранённому профилю
+    if (cached && error) return;   // временно нет связи — работаем по кэшу
     localStorage.removeItem('me_' + uid);
     me = null;
-  
+    const av = $('#avatarLink'), tabs = $('#tabbar');
+    if (av) av.hidden = true;
+    if (tabs) tabs.innerHTML = '';
     app.innerHTML = `<div class="panel narrow">
       <b>Не удалось загрузить профиль</b><br>
       <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код выполнен полностью.')}</span>
@@ -725,7 +772,10 @@ async function onSession(session) {
   const changed = !cached || cached.role !== data.role || cached.full_name !== data.full_name;
   me = data;
   syncPush();
-  if (changed) { try { renderNav(); } catch (e) { console.warn('renderNav:', e); } route(); }
+  if (changed) {
+    try { renderNav(); } catch (e) { console.warn('renderNav:', e); }
+    route();
+  }
 }
 
 // ---------- Список задач ----------
