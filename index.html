@@ -1,3 +1,17 @@
+<script>
+window.addEventListener('error', e => {
+  document.body.insertAdjacentHTML('beforeend',
+    `<div style="position:fixed;bottom:0;left:0;right:0;background:#fee;color:#900;padding:10px;font:12px monospace;z-index:9999">
+      JS: ${e.message} @ ${e.filename}:${e.lineno}:${e.colno}
+    </div>`);
+});
+window.addEventListener('unhandledrejection', e => {
+  document.body.insertAdjacentHTML('beforeend',
+    `<div style="position:fixed;bottom:40px;left:0;right:0;background:#fee;color:#900;padding:10px;font:12px monospace;z-index:9999">
+      Promise: ${e.reason?.message || e.reason}
+    </div>`);
+});
+</script>
 <!doctype html>
 <html lang="ru">
 <head>
@@ -599,7 +613,7 @@ function initials(name){
 
 function renderNav() {
   const av = $('#avatarLink'), tabs = $('#tabbar');
-  if (!av || !tabs) return;
+if (!av || !tabs) return;
 
   if (!me) {
     av.hidden = true;
@@ -725,7 +739,11 @@ async function onSession(session) {
   // 1) Сразу открываем приложение по сохранённому профилю, не дожидаясь сервера
   let cached = null;
   try { cached = JSON.parse(localStorage['me_' + uid] || 'null'); } catch {}
-  if (cached) { me = cached; renderNav(); route(); }
+ if (cached) {
+  me = cached;
+  try { renderNav(); } catch (e) { console.warn('renderNav:', e); }
+  route();
+}
 
   // 2) Параллельно обновляем профиль с сервера
   let data, error;
@@ -751,7 +769,7 @@ async function onSession(session) {
   const changed = !cached || cached.role !== data.role || cached.full_name !== data.full_name;
   me = data;
   syncPush();
-  if (changed) { renderNav(); route(); }
+  if (changed) { try { renderNav(); } catch (e) { console.warn('renderNav:', e); } route(); }
 }
 
 // ---------- Список задач ----------
