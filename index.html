@@ -594,26 +594,38 @@ async function onSession(session) {
   started = true;
   currentUid = uid;
   me = null;
-  if (uid) {
-    let data, error;
-    try { ({ data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle()); }
-    catch (e) { error = e; }
-    if (error || !data) {
-      $('#nav').innerHTML = '';
-      app.innerHTML = `<div class="panel narrow">
-        <b>Не удалось загрузить профиль</b><br>
-        <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код выполнен полностью.')}</span>
-        <p><button class="btn primary" onclick="location.reload()">↻ Повторить</button>
-        <button class="btn" id="out2">Выйти</button></p></div>`;
-      $('#out2').onclick = () => sb.auth.signOut();
-      currentUid = null;
-      return;
-    }
-    me = data;
-    syncPush();
+  if (!uid) { renderNav(); return route(); }
+
+  // 1) Сразу открываем приложение по сохранённому профилю, не дожидаясь сервера
+  let cached = null;
+  try { cached = JSON.parse(localStorage['me_' + uid] || 'null'); } catch {}
+  if (cached) { me = cached; renderNav(); route(); }
+
+  // 2) Параллельно обновляем профиль с сервера
+  let data, error;
+  try { ({ data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle()); }
+  catch (e) { error = e; }
+
+  if (error || !data) {
+    if (cached && error) return;   // временно нет связи — работаем по сохранённому профилю
+    localStorage.removeItem('me_' + uid);
+    me = null;
+    $('#nav').innerHTML = '';
+    app.innerHTML = `<div class="panel narrow">
+      <b>Не удалось загрузить профиль</b><br>
+      <span class="muted">${esc(error?.message || 'Профиль не найден. Проверьте, что SQL-код выполнен полностью.')}</span>
+      <p><button class="btn primary" onclick="location.reload()">↻ Повторить</button>
+      <button class="btn" id="out2">Выйти</button></p></div>`;
+    $('#out2').onclick = () => sb.auth.signOut();
+    currentUid = null;
+    return;
   }
-  renderNav();
-  route();
+
+  localStorage['me_' + uid] = JSON.stringify(data);
+  const changed = !cached || cached.role !== data.role || cached.full_name !== data.full_name;
+  me = data;
+  syncPush();
+  if (changed) { renderNav(); route(); }
 }
 
 // ---------- Список задач ----------
@@ -621,13 +633,13 @@ async function renderList() {
   const isM = me.role === 'manager';
   let q = sb.from('tasks')
     .select('id,title,status,photo_before,due_date,location,assignee:profiles!tasks_assignee_id_fkey(full_name)')
-    .order('id', { ascending: false }).limit(100);
+    .order('id', { ascending: false }).limit(40);
   if (filter.status === 'active') q = q.in('status', ['open', 'review']);
   else if (filter.status !== 'all') q = q.eq('status', filter.status);
   if (filter.assignee) q = q.eq('assignee_id', filter.assignee);
 
   const [tasks, people] = await Promise.all([q.then(ok), isM ? getPeople() : []]);
-  const urls = await signed(tasks.map(t => t.photo_before));
+  const urls = await signed(tasks.flatMap(t => [thumbOf(t.photo_before), t.photo_before]));
 
   app.innerHTML = `
     <div class="toolbar">
@@ -644,7 +656,7 @@ async function renderList() {
     <div class="grid">
       ${tasks.map(t => `
         <a class="card ${overdue(t) ? 'late' : ''}" href="#/task/${t.id}">
-          <img src="${urls[t.photo_before] || ''}" loading="lazy" alt="">
+          <img src="${urls[thumbOf(t.photo_before)] || urls[t.photo_before] || ''}" loading="lazy" decoding="async" alt="">
           ${badge(t.status)}
           <div class="card-body">
             <b>${esc(t.title)}</b>
